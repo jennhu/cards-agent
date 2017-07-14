@@ -52,11 +52,11 @@
 
 Our central question is the following: given the history of the game, what is the optimal goal to pursue?
 
-There are 52 possible goals (i.e. straight flushes of 6 cards). In our goal-focused model, we will give them each different weights in the weight vector $\bvec{w} \in \R^{52}$. At the beginning before any cards are dealt, every goal is equally (un)optimal, and $\bvec{w} := \bvec{0}$.
+There are 52 possible goals (i.e. straight flushes of 6 cards). We give them each different weights in the weight vector $\bvec{w} \in \R^{52}$, which is updated every time we learn new information about the game. At the beginning before any cards are dealt, every goal is equally (un)optimal, and $\bvec{w} := \bvec{0}$.
 
 \section{The Metrics}
 
-To begin with a simple model, I propose to evaluate goals with three metrics: overlap, distance, and likelihood.
+I propose to evaluate goals with three metrics: $\overlap$, $\dist$, and $\lkhd$.
 
 \subsection{Overlap}
 
@@ -94,7 +94,7 @@ P(g \text{ has been discarded}|H) = \begin{cases}
   &= \frac{(4-r_s)/4}{(4-r_s)/4 + (r_s/4)P(U|F^c)}
 \end{align}
 
-Let's look at $P(U|F^c)$. Suppose $g$ is known to be reshuffled in the previous round, and the size of the deck was updated to $D$. The probability of not drawing $g$ in this round is
+Let's look at $P(U|F^c)$. Since we are conditioning on $F^c$, we know that $g$ wasreshuffled in the previous round, and the size of the deck has been updated to $D$. The probability of not drawing $g$ in this round is
 \begin{equation}
   \frac{{D-1 \choose 4}}{{D \choose 4}} = \frac{D-4}{D},
 \end{equation} and this pattern continues for every subsequent round. This gives us
@@ -122,5 +122,14 @@ Note that we can also write the size of the deck at round $k$ as
     \end{align}
   By induction, (\ref{eq:decksize}) holds for all values of $k$.
 \end{proof}
+
+\section{Evaluating Goals}
+
+Every time the history $H$ is updated and we observe a new set of cards $C$, the weights $w_i$ for each goal $G_i$ are updated with a linear combination of the three metrics:
+\begin{equation}
+  w_i := \alpha_0 \cdot \overlap(G_i,C) + \alpha_1 \cdot \dist(G_i,C) + \alpha_2 \cdot \lkhd(G_i,H)
+\label{eq:w-update} \end{equation}
+
+The values of $\{\alpha\}$ depend on how we want to weight the different metrics. A less rational player might weight $\overlap$ more than $\lkhd$, for example.
 
 \end{document}

@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017) (preloaded format=pdflatex 2017.7.14)  14 JUL 2017 11:57
+This is pdfTeX, Version 3.14159265-2.6-1.40.18 (TeX Live 2017) (preloaded format=pdflatex 2017.7.14)  14 JUL 2017 16:40
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1060,10 +1060,10 @@ Package amsmath Warning: Foreign command \atopwithdelims;
 
 [2] [3] (./agent.aux) ) 
 Here is how much of TeX's memory you used:
- 25232 strings out of 492990
- 491361 string characters out of 6132621
- 519395 words of memory out of 5000000
- 28376 multiletter control sequences out of 15000+600000
+ 25233 strings out of 492990
+ 491374 string characters out of 6132621
+ 519404 words of memory out of 5000000
+ 28377 multiletter control sequences out of 15000+600000
  578172 words of font info for 61 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  48i,12n,54p,10420b,275s stack positions out of 5000i,500n,10000p,200000b,80000s
@@ -1084,7 +1084,7 @@ ocal/texlive/2017/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb></u
 sr/local/texlive/2017/texmf-dist/fonts/type1/public/tex-gyre/qplb.pfb></usr/loc
 al/texlive/2017/texmf-dist/fonts/type1/public/tex-gyre/qplr.pfb></usr/local/tex
 live/2017/texmf-dist/fonts/type1/public/tex-gyre/qplri.pfb>
-Output written on agent.pdf (3 pages, 175068 bytes).
+Output written on agent.pdf (3 pages, 178302 bytes).
 PDF statistics:
  81 PDF objects out of 1000 (max. 8388607)
  60 compressed objects within 1 object stream
