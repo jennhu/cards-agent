@@ -1,0 +1,5 @@
+# ignore everything in tex directory except tex file
+tex/*
+!tex/*.tex
+
+*.pyc
