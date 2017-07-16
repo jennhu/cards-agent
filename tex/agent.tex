@@ -50,32 +50,27 @@
 
 \section{Introduction}
 
-Our central question is the following: given the history of the game, what is the optimal goal to pursue?
+Given the history of the card game, what is the optimal goal to pursue? By building a bot that can answer this question at every step of the game, we can evaluate human players' performance, rationality, and goal-specific language in a systematic way.
 
-There are 52 possible goals (i.e. straight flushes of 6 cards). We give them each different weights in the weight vector $\bvec{w} \in \R^{52}$, which is updated every time we learn new information about the game. At the beginning before any cards are dealt, every goal is equally (un)optimal, and $\bvec{w} := \bvec{0}$.
+In a standard 52-card deck, there are 52 possible straight flushes of 6 cards. Each of these 6-card straight flushes is called a goal, and we give weights to each of them in the vector $\bvec{w} \in \R^{52}$, which is updated every time we learn new information about the game. Before any cards are dealt, every goal is equally (un)optimal, and $\bvec{w} := \bvec{0}$.
 
 \section{The Metrics}
 
-I propose to evaluate goals with three metrics: $\overlap$, $\dist$, and $\lkhd$.
+When expert humans play the game, they tend to evaluate goals based on two properties: how many accessible cards (i.e. in the hands and table) coincide with the goal, and how likely it is to obtain the goal based on which cards might have already been discarded. I call these properties $\overlap$ and $\lkhd$.
 
 \subsection{Overlap}
 
-$\overlap$ measures how many cards in common a certain goal $G$ has with a set of cards $C$, typically the ones visible (in hands and on the table). Formally, $\overlap$ is defined as the following:
+$\overlap$ measures how many cards in common a certain goal $G$ has with a set of cards $C$. Formally, $\overlap$ is defined as the following:
 \begin{equation}
-\overlap(C,G) = |C \cap G|
+\overlap(G,C) = |G \cap C|
 \label{eq:overlap} \end{equation}
 $\overlap$ takes on values in the interval $[0,6]$. It is independent of game history.
 
-\subsection{Distance}
-
-$\dist$ measures how close a certain goal $G$ is from a set of cards $C$. It is independent of game history.
-% TODO
-
-IS DISTANCE JUST 6 - OVERLAP?!?!?!?!
+Another way of thinking of $\overlap$ is that $6-\overlap(G,C)$ represents the number of cards ``away'' $C$ is from goal $G$.
 
 \subsection{Likelihood}
 
-$\lkhd$ measures how likely a certain goal $G$ can be obtained given all previous history $H$. $\lkhd$ is defined as the following:
+$\lkhd$ measures how likely it is that a certain goal $G$ can be obtained given all previous history $H$. $\lkhd$ is defined as the following:
 \begin{align}
   \mathcal{L}(G,H) &= \sum_{g \in G} (1 - P(g \text{ has been discarded}|H))
 \end{align}
@@ -89,17 +84,17 @@ P(g \text{ has been discarded}|H) = \begin{cases}
 \label{eq:p-discarded} \end{equation}
 
 \begin{proof}
-  It is easy to see that a card $g$ cannot have been discarded if it is currently in the hands, on the table, or unseen (in the deck). Now, consider the case where $g$ has not been seen for $n$ rounds (since round $s$). Let $F$ be the event that $g$ was discarded at around $s$, and let $U$ be the event that we haven't seen $g$ for $n$ rounds. By Bayes' Rule, we have:
+  It is easy to see that a card $g$ cannot have been discarded if it is currently in the hands, on the table, or unseen (in the deck). Now, consider the case where $g$ has not been seen for $n$ rounds (since round $s$). Let $F$ be the event that $g$ was discarded at round $s$, and let $U$ be the event that $g$ hasn't been seen for $n$ rounds. By Bayes' Rule, we have:
 \begin{align}
   P(F|U) &= \frac{P(U|F)P(F)}{P(U)} \\
   &= \frac{(1)\left(\frac{4-r_s}{4}\right)}{P(U|F)P(F) + P(U|F^c)P(F^c)} \\
   &= \frac{(4-r_s)/4}{(4-r_s)/4 + (r_s/4)P(U|F^c)}
 \end{align}
 
-Let's look at $P(U|F^c)$. Since we are conditioning on $F^c$, we know that $g$ was reshuffled in the previous round, and the size of the deck has been updated to $D$. The probability of not drawing $g$ in this round is
+Let's look at $P(U|F^c)$. Since we are conditioning on $F^c$, we know that $g$ was reshuffled in round $s$, and the size of the deck was updated to $D_s$. The probability of not drawing $g$ in the next round $s+1$ was
 \begin{equation}
-  \frac{{D-1 \choose 4}}{{D \choose 4}} = \frac{D-4}{D},
-\end{equation} and this pattern continues for every subsequent round. This gives us
+  \frac{{D_{s+1}-1 \choose 4}}{{D_{s+1} \choose 4}} = \frac{D_{s+1}-4}{D_{s+1}},
+\end{equation} and this pattern continued for every subsequent round until the current round $s+n$. This gives us
 \begin{equation}
   P(U|F^c) = \prod_{j=1}^n \frac{D_{s+j} - 4}{D_{s+j}}.
 \end{equation}
@@ -110,13 +105,17 @@ Using this result and simplifying, we finally obtain
 \end{equation}
 \end{proof}
 
-Note that we can also write the size of the deck at round $k$ as
+See (\ref{eq:decksize}) for an expression for the deck size at each round.
+
+\subsubsection{Deck Size}
+
+At round $0$, the deck has 52 cards. The size of the deck at round $k > 0$ is given by
 \begin{equation}
   D_k = 46 + \sum_{i=1}^{k-1} r_i - 4k.
 \label{eq:decksize} \end{equation}
 
 \begin{proof}
-  In the base case, $k=1$ yields $46-4(1) = 42$, which is correct since we deal 10 cards from the original 52 in the first round. Suppose now that (\ref{eq:decksize}) is true for $k=n$. Then we have:
+  In the base case, $k=1$ yields $46+0-4(1) = 42$, which is correct since we deal 10 cards from the original 52 in the first round and no cards are reshuffled. Suppose now that (\ref{eq:decksize}) is true for $k=n$. Then we have:
     \begin{align}
       D_{n+1} &= D_n + r_n - 4 \\
       &= (46 + \sum_{i=1}^{n-1} r_i - 4n) + r_n - 4 \\
@@ -127,11 +126,15 @@ Note that we can also write the size of the deck at round $k$ as
 
 \section{Evaluating Goals}
 
-Every time the history $H$ is updated and we observe a new set of cards $C$, the weights $w_i$ for each goal $G_i$ are updated with a linear combination of the three metrics:
+Every time the history $H$ is updated and we observe a new set of cards $C$, the weights $w_i$ for each goal $G_i$ are updated with a linear combination of the two metrics:
 \begin{equation}
-  w_i := \alpha_0 \cdot \overlap(G_i,C) + \alpha_1 \cdot \dist(G_i,C) + \alpha_2 \cdot \lkhd(G_i,H)
+  w_i := \alpha_0 \cdot \overlap(G_i,C) + \alpha_1 \cdot \lkhd(G_i,H)
 \label{eq:w-update} \end{equation}
 
-The values of $\{\alpha\}$ depend on how we want to weight the different metrics. A less rational player might weight $\overlap$ more than $\lkhd$, for example.
+The values of $\{\alpha\}$ depend on how ``rational'' we want the goal agent to be. A more human-like player might weight $\overlap$ more than $\lkhd$, for example, since it tends to consider only the visible cards and does not calculate probabilities based on game history.
+
+\section{Next Steps}
+
+This goal agent gives a good sense of which goals are optimal at each step, but it treats both players' hands as a single object and does not reason about goals using the knowledge that each player must alternate turns. My next step is to incorporate turn-taking into the goal evaluation model. As expert humans, we've found this to be the most challenging part of the game and the impetus for most goal-changing.
 
 \end{document}

@@ -4,6 +4,13 @@ import numpy as np
 def generateGoals():
     return [Goal(start, suit) for start in xrange(13) for suit in xrange(4)]
 
+def initialize():
+    goals = generateGoals()
+    deck = Deck(0.5)
+    w = np.zeros(len(goals))
+    H = History()
+    return goals, deck, w, H
+
 def updateWeights(w, H, goals, alpha_0, alpha_1):
     C = H.hands + H.table
     for (i,g) in enumerate(goals):
@@ -12,13 +19,6 @@ def updateWeights(w, H, goals, alpha_0, alpha_1):
 
 def optimalGoals(w, goals):
     return [goals[i] for i, x in enumerate(w) if x == max(w)]
-
-def initialize():
-    goals = generateGoals()
-    deck = Deck(0.5)
-    w = np.zeros(len(goals))
-    H = History()
-    return goals, deck, w, H
 
 def play():
     goals, deck, w, H = initialize()
@@ -55,5 +55,5 @@ def play():
 
     print 'CONGRATULATIONS! You\'ve found a straight flush!'
     print optimalGoals(w, goals)[0].cards
-    
+
 play()
