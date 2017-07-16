@@ -71,6 +71,8 @@ $\overlap$ takes on values in the interval $[0,6]$. It is independent of game hi
 $\dist$ measures how close a certain goal $G$ is from a set of cards $C$. It is independent of game history.
 % TODO
 
+IS DISTANCE JUST 6 - OVERLAP?!?!?!?!
+
 \subsection{Likelihood}
 
 $\lkhd$ measures how likely a certain goal $G$ can be obtained given all previous history $H$. $\lkhd$ is defined as the following:
@@ -81,20 +83,20 @@ $\lkhd$ measures how likely a certain goal $G$ can be obtained given all previou
 Given a card $g$ and history $H$, we can find $P(g \text{ has been discarded}|H)$ in the following way. First, we assume that the history $H$ contains information about $r_i$, the number of cards reshuffled at round $i$ for all $i$, as well as which cards we have seen and not seen. Let $s$ be the index of the round that $g$ was last seen, let $n$ be the number of rounds that have occurred between $s$ and now, and let $D_i$ be the size of the deck at round $i$. Then we have:
 \begin{equation}
 P(g \text{ has been discarded}|H) = \begin{cases}
-  0 & g \in \text{ hands or table} \\
+  0 & g \in \text{ hands or table, or unseen} \\
   \frac{4-r_s}{4-r_s+r_s\prod_{j=1}^n(1-4/{D_{s+j}})} & \text{o.w.}
 \end{cases}
 \label{eq:p-discarded} \end{equation}
 
 \begin{proof}
-  It is easy to see that a card $g$ cannot have been discarded if it is currently in the hands or on the table. Now, consider the case where $g$ has not been seen for $n$ rounds (since round $s$). Let $F$ be the event that $g$ was discarded at around $s$, and let $U$ be the event that we haven't seen $g$ for $n$ rounds. By Bayes' Rule, we have:
+  It is easy to see that a card $g$ cannot have been discarded if it is currently in the hands, on the table, or unseen (in the deck). Now, consider the case where $g$ has not been seen for $n$ rounds (since round $s$). Let $F$ be the event that $g$ was discarded at around $s$, and let $U$ be the event that we haven't seen $g$ for $n$ rounds. By Bayes' Rule, we have:
 \begin{align}
   P(F|U) &= \frac{P(U|F)P(F)}{P(U)} \\
   &= \frac{(1)\left(\frac{4-r_s}{4}\right)}{P(U|F)P(F) + P(U|F^c)P(F^c)} \\
   &= \frac{(4-r_s)/4}{(4-r_s)/4 + (r_s/4)P(U|F^c)}
 \end{align}
 
-Let's look at $P(U|F^c)$. Since we are conditioning on $F^c$, we know that $g$ wasreshuffled in the previous round, and the size of the deck has been updated to $D$. The probability of not drawing $g$ in this round is
+Let's look at $P(U|F^c)$. Since we are conditioning on $F^c$, we know that $g$ was reshuffled in the previous round, and the size of the deck has been updated to $D$. The probability of not drawing $g$ in this round is
 \begin{equation}
   \frac{{D-1 \choose 4}}{{D \choose 4}} = \frac{D-4}{D},
 \end{equation} and this pattern continues for every subsequent round. This gives us
