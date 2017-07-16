@@ -9,7 +9,7 @@ class Goal:
     def toCards(self):
         return set([Card(v,self.suit) for v in xrange(self.start,self.start+6)])
     def overlap(self, C):
-        return len(C & self.cards)
+        return len(set(C) & self.cards)
     def likelihood(self, H):
         return sum([1 - g.probDiscarded(H) for g in self.cards])
     def __repr__(self):
@@ -27,7 +27,11 @@ class Card:
             r_s = H.R[s]
             prod = 1
             for i in xrange(s, H.curRound):
-                prod = prod * (1 - 4/(H.deckSize(i)))
+                try:
+                    prod = prod * (1 - 4/(H.deckSize(i)))
+                except ZeroDivisionError:
+                    print 'No cards left in deck.'
+                    break
             return prod
     def __repr__(self):
         return 'Card(%d,%d)' % (self.val, self.suit)
@@ -45,9 +49,12 @@ class Deck:
         self.cards = cards
         self.p = p
     def draw(self, n):
-        drawn = self.cards[:n]
-        self.cards = self.cards[n:]
-        return drawn
+        if len(self.cards) < n:
+            print 'No cards left in deck.'
+        else:
+            drawn = self.cards[:n]
+            self.cards = self.cards[n:]
+            return drawn
     def reshuffle(self, cards):
         r = 0
         for c in cards:
@@ -86,5 +93,5 @@ class History:
         s3 = ' * Table: ' + self.table.__repr__()
         s4 = ' * Seen: ' + self.seenDict.__repr__()
         s5 = ' * R: ' + self.R.__repr__()
-        s6 = ' * Deck size: %d' % self.D
+        s6 = ' * Deck size: %d (-> %d)' % (self.D, self.D+self.R[self.curRound-1])
         return 'HISTORY\n%s\n%s\n%s\n%s\n%s\n%s' % (s1,s2,s3,s4,s5,s6)
