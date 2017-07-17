@@ -31,9 +31,10 @@
 \newcommand{\lkhd}{\textsc{Likelihood}}
 \newcommand{\goodaction}{\textsc{GoodAction}}
 
-% DEFINITIONS AND THEOREMS
+% DEFINITIONS, THEOREMS, & CLAIMS
 \newtheorem{theorem}{Theorem}
 \declaretheorem[style=definition,qed=$\blacksquare$]{definition}
+\newenvironment{claim}[1]{\par\noindent\textit{Claim.}\space#1}{\hfill $\blacksquare$}
 
 \pagestyle{fancy}
 \fancyhf{}
@@ -49,13 +50,13 @@
 
 \section{Introduction}
 
-Given the history of the card game, what is the optimal goal to pursue? By building a bot that can answer this question at every step of the game, we can evaluate human players' performance, rationality, and goal-specific language in a systematic way.
+Given the history of the card game, what is the optimal goal to pursue? By building a bot that can answer this question at every step of the game, we can evaluate human players' performance, rationality, and goal-oriented language in a systematic way.
 
 In a standard 52-card deck, there are 52 possible straight flushes of 6 cards. Each of these 6-card straight flushes is called a goal, and we give weights to each of them in the vector $\bvec{w} \in \R^{52}$, which is updated every time we learn new information about the game. Before any cards are dealt, every goal is equally (un)optimal, and $\bvec{w} := \bvec{0}$. The game history contains information about the number of cards reshuffled at each round and the cards we have already seen.
 
 \section{The Features}
 
-When expert humans play the game, they tend to evaluate goals based on three features: (1) how many accessible cards (i.e. in the hands and table) coincide with the goal, (2) how likely it is to obtain the goal based on which cards might have already been discarded, and (3) whether or not they can take an action that brings them closer to the goal during their turn. I call these properties $\overlap$, $\lkhd$, and $\goodaction$, respectively.
+When expert humans play the game, they tend to evaluate goals based on three features: (1) how many visible cards (i.e. in the hands and table) coincide with the goal, (2) how likely it is to obtain the goal based on which cards might have already been discarded, and (3) whether or not they can take an action that brings them closer to the goal during their turn. I call these features $\overlap$, $\lkhd$, and $\goodaction$, respectively.
 
 \subsection{$\overlap$}
 
@@ -69,21 +70,24 @@ Another way of thinking of $\overlap$ is that $6-\overlap(G,C)$ represents the n
 
 \subsection{$\lkhd$}
 
-$\lkhd$ measures how likely it is that a certain goal $G$ can be obtained given all previous history $H$. $\lkhd$ is defined as the following:
+$\lkhd$ measures how likely it is that a certain goal $G$ can be obtained given all previous history $H$. Strictly speaking, it is not a probability, but it increases monotonically as the probability of obtaining the goal increases. $\lkhd$ is defined as the following:
 \begin{align}
   \mathcal{L}(G,H) &= \sum_{g \in G} (1 - P(g \text{ has been discarded}|H))
 \end{align}
 
-Given a card $g$ and history $H$, we can find $P(g \text{ has been discarded}|H)$ in the following way. First, we know $H$ contains information about $r_i$, the number of cards reshuffled at round $i$ for all $i$, as well as which cards we have and have not seen. Let $s$ be the index of the round that $g$ was last seen, let $n$ be the number of rounds that have occurred between $s$ and now, and let $D_i$ be the size of the deck at round $i$. Then we have:
+Given a card $g$ and history $H$, we can find $P(g \text{ has been discarded}|H)$ in the following way. First, we know $H$ contains information about $r_i$, the number of cards reshuffled at round $i$ for all $i$, as well as which cards we have and have not seen. Let $s$ be the index of the round that $g$ was last seen, let $n$ be the number of rounds that have occurred between $s$ and now, and let $D_i$ be the size of the deck at round $i$.
+
+\begin{claim}
 \begin{equation}
 P(g \text{ has been discarded}|H) = \begin{cases}
   0 & g \in \text{ hands or table, or unseen} \\
   \frac{4-r_s}{4-r_s+r_s\prod_{j=1}^n(1-4/{D_{s+j}})} & \text{o.w.}
 \end{cases}
 \label{eq:p-discarded} \end{equation}
+\end{claim}
 
 \begin{proof}
-  It is easy to see that a card $g$ cannot have been discarded if it is currently in the hands, on the table, or unseen (in the deck). Now, consider the case where $g$ has not been seen for $n$ rounds (since round $s$). Let $F$ be the event that $g$ was discarded at round $s$, and let $U$ be the event that $g$ hasn't been seen for $n$ rounds. By Bayes' Rule, we have:
+  It is easy to see that a card $g$ cannot have been discarded if it is currently in the hands, on the table, or unseen (in the deck). Now, consider the case where $g$ has not been seen for $n$ rounds (i.e. since round $s$). Let $F$ be the event that $g$ was discarded at round $s$, and let $U$ be the event that $g$ hasn't been seen for $n$ rounds. By Bayes' Rule, we have:
 \begin{align}
   P(F|U) &= \frac{P(U|F)P(F)}{P(U)} \\
   &= \frac{(1)\left(\frac{4-r_s}{4}\right)}{P(U|F)P(F) + P(U|F^c)P(F^c)} \\
@@ -108,10 +112,14 @@ See (\ref{eq:decksize}) for an expression for the deck size at each round.
 
 \subsubsection{Deck Size}
 
-At round $0$, the deck has 52 cards. The size of the deck at round $k > 0$ is given by
+It is useful to keep track of the size of the deck at each round $k$ in order to calculate the relevant probabilities. Before any cards are dealt (i.e. round $k=0$), the deck has 52 cards.
+
+\begin{claim}
+The size of the deck at round $k > 0$ is given by
 \begin{equation}
   D_k = 46 + \sum_{i=1}^{k-1} r_i - 4k.
 \label{eq:decksize} \end{equation}
+\end{claim}
 
 \begin{proof}
   In the base case, $k=1$ yields $46+0-4(1) = 42$, which is correct since we deal 10 cards from the original 52 in the first round and no cards are reshuffled. Suppose now that (\ref{eq:decksize}) is true for $k=n$. Then we have:
@@ -134,7 +142,7 @@ I define $\goodaction$ as the following:
 where $T_i$ and $A_i$ are defined as
 \begin{align}
   T_i &= \begin{cases}
-    1 & \text{it's Player $i$'s turn} \\
+    1 & \text{currently Player $i$'s turn} \\
     0 & \text{o.w.}
   \end{cases} \\
   A_i(G) &= \begin{cases}
@@ -147,19 +155,21 @@ An ``action'' is defined as a swap of 1, 2, or 3 cards between a player's hand a
 
 \section{Evaluating Goals}
 
-Every time the history $H$ is updated and we observe a new set of cards $C$, the weights $w_i$ for each goal $G_i$ are updated with a linear combination of the two metrics:
+Every time the history $H$ is updated and we observe a new set of cards $C$, the weights $w_i$ for each goal $G_i$ are updated with a linear combination of the features:
 \begin{equation}
   w_i := \alpha_0 \cdot \overlap(G_i,C) + \alpha_1 \cdot \lkhd(G_i,H) + \alpha_2 \cdot \goodaction(G_i)
 \label{eq:w-update} \end{equation}
 
-The values of $\{\alpha\}$ depend on how ``rational'' we want the goal agent to be. A more human-like player might weigh $\overlap$ over $\lkhd$, for example, since it tends to consider only the visible cards and does not calculate probabilities based on game history. Expert humans might also be more likely to put high weight on $\goodaction$.
+After the weights are updated, the model returns the ``optimal'' goal(s), which correspond to the max value(s) in $\bvec{w}$.
+
+The values of $\{\alpha\}$ should be set to reflect the agent's preferences. A more human-like agent might weigh $\overlap$ over $\lkhd$, for example, since it tends to consider only the visible cards and does not calculate probabilities based on game history. Expert humans might also be more likely to place greater weight on $\goodaction$, which would be reflected in a high $\alpha_2$ value.
 
 \section{Issues and Next Steps}
 
-This goal evaluation model is rather simple, but its output at each step makes sense from a human assessment.
+This goal evaluation model is rather simple, but its output at each step seems reasonable. Here are a few issues I've identified at this point:
 
-The first issue is what values to choose for $\{\alpha\}$. Since we don't have a ``ground truth'' optimal goal baseline (which is why we're making this one!), it's difficult to evaluate the model's output in a rigorous way. Different values of $\{\alpha\}$ do noticeably affect the output, and it seems counterproductive to rely on human judgment to compare the outputs.
+The first issue is what values to choose for $\{\alpha\}$. Since we don't have a ``ground truth'' optimal goal baseline (which is why we're making this one!), it's difficult to evaluate the model's output in a rigorous way. Different values of $\{\alpha\}$ do noticeably affect the output, and it seems unprincipled to rely on human judgment to compare the outputs.
 
-Next, we face the issue of computational complexity.
+I am also wondering what other features we should be including. Again, I only thought of these three based on my experiences as an expert human player, but I am surely missing something that would bring the model closer to a ``ground truth''. Even if we can't create a perfect model, what heuristics should we be using to measure its performance?
 
 \end{document}

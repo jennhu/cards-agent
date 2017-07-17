@@ -25,23 +25,25 @@ if __name__ == '__main__':
     H.myHand = deck.draw(3)
     H.yourHand = deck.draw(3)
 
+    optimalGoals = []
+
     while not any(g.overlap(H.myHand + H.yourHand) == 6 for g in goals):
         # draw new cards
         H.table = deck.draw(4)
         r = deck.reshuffle(H.table)
 
         # update text and hand based on turn
-        turnText = 'MY' if H.myTurn else 'YOUR'
+        whose = 'MY' if H.myTurn else 'YOUR'
         hand = H.myHand if H.myTurn else H.yourHand
 
         # print updated cards
-        print "----> It's %s turn." % turnText
+        print "----> It's %s turn." % whose
         print "----> My hand: ", H.myHand
         print "----> Your hand: ", H.yourHand
         print "----> Table: ", H.table
 
         # prompt user to enter which cards to swap
-        hand_inds = input('Enter list of indices to swap from %s hand: ' % turnText)
+        hand_inds = input('Enter list of indices to swap from %s hand: ' % whose)
         table_inds = input('Enter list of indices to swap from table: ')
         swapIndices(hand, H.table, hand_inds, table_inds)
 
@@ -60,4 +62,4 @@ if __name__ == '__main__':
         H.myTurn = not H.myTurn
 
     print 'CONGRATULATIONS! You\'ve found a straight flush!'
-    print optimalGoals(w, goals)[0].cards
+    print optimalGoals[0].cards
