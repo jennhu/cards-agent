@@ -1,4 +1,4 @@
-from agent import Goal, Card, Deck, History
+from agent import Goal, Card, Deck, History, swapIndices
 import numpy as np
 
 def generateGoals():
@@ -8,52 +8,56 @@ def initialize():
     goals = generateGoals()
     deck = Deck(0.5)
     w = np.zeros(len(goals))
-    H = History()
+    H = History(True)
     return goals, deck, w, H
 
-def updateWeights(w, H, goals, alpha_0, alpha_1):
-    C = H.hands + H.table
+def updateWeights(w, H, goals, alpha):
+    C = H.myHand + H.yourHand
     for (i,g) in enumerate(goals):
-        w[i] = alpha_0 * g.overlap(C) + alpha_1 * g.likelihood(H)
-    return w
+        feats = [g.overlap(C), g.likelihood(H), g.goodAction(H)]
+        w[i] = np.dot(alpha, feats)
 
-def optimalGoals(w, goals):
+def getOptimalGoals(w, goals):
     return [goals[i] for i, x in enumerate(w) if x == max(w)]
 
-def play():
+if __name__ == '__main__':
     goals, deck, w, H = initialize()
-    H.hands = deck.draw(6)
+    H.myHand = deck.draw(3)
+    H.yourHand = deck.draw(3)
 
-    while not any(g.overlap(H.hands) == 6 for g in goals):
+    while not any(g.overlap(H.myHand + H.yourHand) == 6 for g in goals):
+        # draw new cards
         H.table = deck.draw(4)
         r = deck.reshuffle(H.table)
 
-        print "----> HANDS: ", H.hands
-        print "----> TABLE: ", H.table
+        # update text and hand based on turn
+        turnText = 'MY' if H.myTurn else 'YOUR'
+        hand = H.myHand if H.myTurn else H.yourHand
 
-        optimalBefore = optimalGoals(w, goals)
-        print "Optimal goals before swap: ", optimalBefore
+        # print updated cards
+        print "----> It's %s turn." % turnText
+        print "----> My hand: ", H.myHand
+        print "----> Your hand: ", H.yourHand
+        print "----> Table: ", H.table
 
         # prompt user to enter which cards to swap
-        i_list = input('Enter list of indices to swap from hands: ')
-        j_list = input('Enter list of indices to swap from table: ')
+        hand_inds = input('Enter list of indices to swap from %s hand: ' % turnText)
+        table_inds = input('Enter list of indices to swap from table: ')
+        swapIndices(hand, H.table, hand_inds, table_inds)
+
+        # update card history, weights, and optimal goals
+        H.update(H.myHand + H.yourHand + H.table, r)
+        updateWeights(w, H, goals, [1,2,1])
+        optimalGoals = getOptimalGoals(w, goals)
+
+        # print new history and optimal goals
         print
-
-        if len(i_list) != len(j_list):
-            print 'Must swap same number from hands and table.'
-        else:
-            for i in i_list:
-                for j in j_list:
-                    H.hands[i], H.table[j] = H.table[j], H.hands[i]
-
-        H.update(H.hands + H.table, r)
-        w = updateWeights(w, H, goals, 1, 1)
-        optimalAfter = optimalGoals(w, goals)
         print H
-        print "Optimal goals after swap: ", optimalAfter
+        print "Optimal goals: ", optimalGoals
         print
+
+        # next player's turn
+        H.myTurn = not H.myTurn
 
     print 'CONGRATULATIONS! You\'ve found a straight flush!'
     print optimalGoals(w, goals)[0].cards
-
-play()

@@ -1,5 +1,13 @@
 import numpy as np
+import itertools
 import random
+
+def swapIndices(A, B, A_indices, B_indices):
+    if len(A_indices) != len(B_indices):
+        print 'Must enter same number of indices to swap.'
+    else:
+        for (i, j) in itertools.product(A_indices, B_indices):
+            A[i], B[j] = B[j], A[i]
 
 class Goal:
     def __init__(self, start, suit):
@@ -7,11 +15,31 @@ class Goal:
         self.suit = suit
         self.cards = self.toCards()
     def toCards(self):
-        return set([Card(v,self.suit) for v in xrange(self.start,self.start+6)])
+        return [Card(v,self.suit) for v in xrange(self.start,self.start+6)]
     def overlap(self, C):
-        return len(set(C) & self.cards)
+        return len(set(C) & set(self.cards))
     def likelihood(self, H):
         return sum([1 - g.probDiscarded(H) for g in self.cards])
+    def existsAction(self, C, T):
+        origOverlap = self.overlap(C)
+        C_temp = C[:]
+        T_temp = T[:]
+        for i in xrange(1,len(C)+1):
+            i_subsets_C = itertools.combinations(xrange(len(C)), i)
+            i_subsets_T = itertools.combinations(xrange(len(T)), i)
+            for s_C in i_subsets_C:
+                for s_T in i_subsets_T:
+                    swapIndices(C_temp, T_temp, s_C, s_T)
+                    if self.overlap(C_temp) > origOverlap:
+                        return True
+                    # reset values
+                    C_temp = C[:]
+                    T_temp = T[:]
+        return False
+    def goodAction(self, H):
+        myAction = H.myTurn and self.existsAction(H.myHand, H.table)
+        yourAction = (not H.myTurn) and self.existsAction(H.yourHand, H.table)
+        return int(myAction) + int(yourAction)
     def __repr__(self):
         return 'Goal(%d,%d)' % (self.start, self.suit)
 
@@ -20,7 +48,8 @@ class Card:
         self.val = val % 13
         self.suit = suit
     def probDiscarded(self, H):
-        if self in H.hands or self in H.table or self not in H.seenDict.keys():
+        visible = H.myHand + H.yourHand + H.table
+        if self in visible or self not in H.seenDict.keys():
             return 0
         else:
             s = H.lastRoundSeen(self)
@@ -64,9 +93,11 @@ class Deck:
         return r
 
 class History:
-    def __init__(self):
+    def __init__(self, meFirst):
         self.seenDict = {}
-        self.hands = []
+        self.myHand = []
+        self.yourHand = []
+        self.myTurn = meFirst
         self.table = []
         self.R = []
         self.curRound = 0
@@ -88,10 +119,11 @@ class History:
         elif i != 0:
             return self.D + self.R[i-2] - 4
     def __repr__(self):
-        s1 = ' * Round: %d' % self.curRound
-        s2 = ' * Hands: ' + self.hands.__repr__()
-        s3 = ' * Table: ' + self.table.__repr__()
-        s4 = ' * Seen: ' + self.seenDict.__repr__()
-        s5 = ' * R: ' + self.R.__repr__()
-        s6 = ' * Deck size: %d (-> %d)' % (self.D, self.D+self.R[self.curRound-1])
-        return 'HISTORY\n%s\n%s\n%s\n%s\n%s\n%s' % (s1,s2,s3,s4,s5,s6)
+        s1 = ' * Round = %d, myTurn = %s' % (self.curRound, self.myTurn.__repr__())
+        s2 = ' * My Hand: ' + self.myHand.__repr__()
+        s3 = ' * Your Hand: ' + self.yourHand.__repr__()
+        s4 = ' * Table: ' + self.table.__repr__()
+        s5 = ' * Seen: ' + self.seenDict.__repr__()
+        s6 = ' * R: ' + self.R.__repr__()
+        s7 = ' * Deck size: %d -> %d' % (self.D, self.D+self.R[self.curRound-1])
+        return 'HISTORY\n%s\n%s\n%s\n%s\n%s\n%s\n%s' % (s1,s2,s3,s4,s5,s6,s7)

@@ -22,15 +22,14 @@
 \usepackage{mdframed}
 \usepackage{algpseudocode}
 \usepackage{tikz}
-\usepackage{tkz-graph} % for graphs
 
 % MATHEMATICAL COMMANDS
 \DeclareMathOperator*{\argmax}{arg\,max}
 \newcommand{\bvec}[1]{\vec{\mathbf{#1}}}
 \newcommand{\R}{\mathbb{R}}
-\newcommand{\dist}{\textsc{Distance}}
 \newcommand{\overlap}{\textsc{Overlap}}
 \newcommand{\lkhd}{\textsc{Likelihood}}
+\newcommand{\goodaction}{\textsc{GoodAction}}
 
 % DEFINITIONS AND THEOREMS
 \newtheorem{theorem}{Theorem}
@@ -52,13 +51,13 @@
 
 Given the history of the card game, what is the optimal goal to pursue? By building a bot that can answer this question at every step of the game, we can evaluate human players' performance, rationality, and goal-specific language in a systematic way.
 
-In a standard 52-card deck, there are 52 possible straight flushes of 6 cards. Each of these 6-card straight flushes is called a goal, and we give weights to each of them in the vector $\bvec{w} \in \R^{52}$, which is updated every time we learn new information about the game. Before any cards are dealt, every goal is equally (un)optimal, and $\bvec{w} := \bvec{0}$.
+In a standard 52-card deck, there are 52 possible straight flushes of 6 cards. Each of these 6-card straight flushes is called a goal, and we give weights to each of them in the vector $\bvec{w} \in \R^{52}$, which is updated every time we learn new information about the game. Before any cards are dealt, every goal is equally (un)optimal, and $\bvec{w} := \bvec{0}$. The game history contains information about the number of cards reshuffled at each round and the cards we have already seen.
 
-\section{The Metrics}
+\section{The Features}
 
-When expert humans play the game, they tend to evaluate goals based on two properties: how many accessible cards (i.e. in the hands and table) coincide with the goal, and how likely it is to obtain the goal based on which cards might have already been discarded. I call these properties $\overlap$ and $\lkhd$.
+When expert humans play the game, they tend to evaluate goals based on three features: (1) how many accessible cards (i.e. in the hands and table) coincide with the goal, (2) how likely it is to obtain the goal based on which cards might have already been discarded, and (3) whether or not they can take an action that brings them closer to the goal during their turn. I call these properties $\overlap$, $\lkhd$, and $\goodaction$, respectively.
 
-\subsection{Overlap}
+\subsection{$\overlap$}
 
 $\overlap$ measures how many cards in common a certain goal $G$ has with a set of cards $C$. Formally, $\overlap$ is defined as the following:
 \begin{equation}
@@ -68,14 +67,14 @@ $\overlap$ takes on values in the interval $[0,6]$. It is independent of game hi
 
 Another way of thinking of $\overlap$ is that $6-\overlap(G,C)$ represents the number of cards ``away'' $C$ is from goal $G$.
 
-\subsection{Likelihood}
+\subsection{$\lkhd$}
 
 $\lkhd$ measures how likely it is that a certain goal $G$ can be obtained given all previous history $H$. $\lkhd$ is defined as the following:
 \begin{align}
   \mathcal{L}(G,H) &= \sum_{g \in G} (1 - P(g \text{ has been discarded}|H))
 \end{align}
 
-Given a card $g$ and history $H$, we can find $P(g \text{ has been discarded}|H)$ in the following way. First, we assume that the history $H$ contains information about $r_i$, the number of cards reshuffled at round $i$ for all $i$, as well as which cards we have seen and not seen. Let $s$ be the index of the round that $g$ was last seen, let $n$ be the number of rounds that have occurred between $s$ and now, and let $D_i$ be the size of the deck at round $i$. Then we have:
+Given a card $g$ and history $H$, we can find $P(g \text{ has been discarded}|H)$ in the following way. First, we know $H$ contains information about $r_i$, the number of cards reshuffled at round $i$ for all $i$, as well as which cards we have and have not seen. Let $s$ be the index of the round that $g$ was last seen, let $n$ be the number of rounds that have occurred between $s$ and now, and let $D_i$ be the size of the deck at round $i$. Then we have:
 \begin{equation}
 P(g \text{ has been discarded}|H) = \begin{cases}
   0 & g \in \text{ hands or table, or unseen} \\
@@ -124,17 +123,43 @@ At round $0$, the deck has 52 cards. The size of the deck at round $k > 0$ is gi
   By induction, (\ref{eq:decksize}) holds for all values of $k$.
 \end{proof}
 
+\subsection{$\goodaction$}
+
+With $\overlap$ and $\lkhd$, the goal agent gives a good sense of which goals are optimal at each step, but it treats both players' hands as a single object and does not reason about goals using the knowledge that each player must alternate turns. $\goodaction$ incorporates turn-taking into the goal evaluation model. As expert humans, we've found this to be the most challenging part of the game and the primary impetus for goal-changing.
+
+I define $\goodaction$ as the following:
+\begin{equation}
+  \goodaction(G) = T_1 \cdot A_1(G) + T_2 \cdot A_2(G),
+\label{eq:goodaction} \end{equation}
+where $T_i$ and $A_i$ are defined as
+\begin{align}
+  T_i &= \begin{cases}
+    1 & \text{it's Player $i$'s turn} \\
+    0 & \text{o.w.}
+  \end{cases} \\
+  A_i(G) &= \begin{cases}
+    1 & \exists \text{ an action Player $i$ can take that will bring them closer to $G$} \\
+    0 & \text{o.w.}
+  \end{cases}
+\end{align}
+
+An ``action'' is defined as a swap of 1, 2, or 3 cards between a player's hand and the table. Getting ``closer'' to a goal $G$ is equivalent to increasing the $\overlap$. Note that $\goodaction(G)$ implicitly depends on the game history $H$ in order to access information about whose turn it is and the players' hands.
+
 \section{Evaluating Goals}
 
 Every time the history $H$ is updated and we observe a new set of cards $C$, the weights $w_i$ for each goal $G_i$ are updated with a linear combination of the two metrics:
 \begin{equation}
-  w_i := \alpha_0 \cdot \overlap(G_i,C) + \alpha_1 \cdot \lkhd(G_i,H)
+  w_i := \alpha_0 \cdot \overlap(G_i,C) + \alpha_1 \cdot \lkhd(G_i,H) + \alpha_2 \cdot \goodaction(G_i)
 \label{eq:w-update} \end{equation}
 
-The values of $\{\alpha\}$ depend on how ``rational'' we want the goal agent to be. A more human-like player might weight $\overlap$ more than $\lkhd$, for example, since it tends to consider only the visible cards and does not calculate probabilities based on game history.
+The values of $\{\alpha\}$ depend on how ``rational'' we want the goal agent to be. A more human-like player might weigh $\overlap$ over $\lkhd$, for example, since it tends to consider only the visible cards and does not calculate probabilities based on game history. Expert humans might also be more likely to put high weight on $\goodaction$.
 
-\section{Next Steps}
+\section{Issues and Next Steps}
 
-This goal agent gives a good sense of which goals are optimal at each step, but it treats both players' hands as a single object and does not reason about goals using the knowledge that each player must alternate turns. My next step is to incorporate turn-taking into the goal evaluation model. As expert humans, we've found this to be the most challenging part of the game and the impetus for most goal-changing.
+This goal evaluation model is rather simple, but its output at each step makes sense from a human assessment.
+
+The first issue is what values to choose for $\{\alpha\}$. Since we don't have a ``ground truth'' optimal goal baseline (which is why we're making this one!), it's difficult to evaluate the model's output in a rigorous way. Different values of $\{\alpha\}$ do noticeably affect the output, and it seems counterproductive to rely on human judgment to compare the outputs.
+
+Next, we face the issue of computational complexity.
 
 \end{document}
