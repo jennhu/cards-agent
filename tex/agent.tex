@@ -70,9 +70,9 @@ Another way of thinking of $\overlap$ is that $6-\overlap(G,C)$ represents the n
 
 \subsection{$\lkhd$}
 
-$\lkhd$ measures how likely it is that a certain goal $G$ can be obtained given all previous history $H$. Strictly speaking, it is not a probability, but it increases monotonically as the probability of obtaining the goal increases. $\lkhd$ is defined as the following:
+$\lkhd$ measures how likely it is that a certain goal $G$ can be obtained given all previous history $H$. $\lkhd$ is defined as the following:
 \begin{align}
-  \mathcal{L}(G,H) &= \sum_{g \in G} (1 - P(g \text{ has been discarded}|H))
+  \mathcal{L}(G,H) &= \sum_{g \in G} \log(1 - P(g \text{ has been discarded}|H))
 \end{align}
 
 Given a card $g$ and history $H$, we can find $P(g \text{ has been discarded}|H)$ in the following way. First, we know $H$ contains information about $r_i$, the number of cards reshuffled at round $i$ for all $i$, as well as which cards we have and have not seen. Let $s$ be the index of the round that $g$ was last seen, let $n$ be the number of rounds that have occurred between $s$ and now, and let $D_i$ be the size of the deck at round $i$.

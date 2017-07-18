@@ -1,4 +1,4 @@
-from agent import Goal, Card, Deck, History, swapIndices
+from game import Goal, Card, Deck, History, swapIndices
 import numpy as np
 
 def generateGoals():
@@ -49,7 +49,7 @@ if __name__ == '__main__':
 
         # update card history, weights, and optimal goals
         H.update(H.myHand + H.yourHand + H.table, r)
-        updateWeights(w, H, goals, [1,2,1])
+        updateWeights(w, H, goals, [1,3,1])
         optimalGoals = getOptimalGoals(w, goals)
 
         # print new history and optimal goals
