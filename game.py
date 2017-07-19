@@ -12,20 +12,22 @@ def swapIndices(A, B, A_indices, B_indices):
 def generateGoals():
     return [Goal(start, suit) for start in xrange(13) for suit in xrange(4)]
 
-def initialize(p=0.5, meFirst = True):
+def initialize(p, P1First = True):
     goals = generateGoals()
     deck = Deck(p)
     w = np.zeros(len(goals))
-    H = History(meFirst)
+    H = History(P1First)
     P1 = Player()
     P2 = Player()
     return goals, deck, w, H, P1, P2
 
-def updateWeights(w, H, P1, P2, goals, alpha):
+def getWeights(H, P1, P2, goals, alpha):
     C = P1.hand + P2.hand
-    for (i,g) in enumerate(goals):
-        feats = [g.overlap(C), g.likelihood(H, P1, P2), g.goodAction(H, P1, P2)]
-        w[i] = np.dot(alpha, feats)
+    w = []
+    for g in goals:
+        feats = [g.overlap(C), g.likelihood(H, P1, P2), g.goodAction(H, P1, P2, goals)]
+        w.append(np.dot(alpha, feats))
+    return w
 
 def getOptimalGoals(w, goals):
     return [goals[i] for i, x in enumerate(w) if x == max(w)]
@@ -44,35 +46,26 @@ class Goal:
     def overlap(self, C):
         return len(set(C) & set(self.cards))
     def likelihood(self, H, P1, P2):
-        prod = 1
-        for g in self.cards:
-            prod = prod * g.probInPlay(H, P1, P2)
-        return prod
+        return np.prod([g.probInPlay(H, P1, P2) for g in self.cards])
+        # return np.prod([1-g.probDiscarded(H, P1, P2) for g in self.cards])
         # return sum([np.log(g.probInPlay(H, P1, P2)) for g in self.cards])
         # return sum([np.log(1 - g.probDiscarded(H, P1, P2)) for g in self.cards])
-    def getGoodActions(self, C, T):
-        goodActions, neutralActions = [], []
-        curOverlap = self.overlap(C)
-        C_temp, T_temp = C[:], T[:]
-        for i in xrange(1,len(C)+1):
-            i_subsets_C = itertools.combinations(xrange(len(C)), i)
-            i_subsets_T = itertools.combinations(xrange(len(T)), i)
-            for s_C in i_subsets_C:
-                for s_T in i_subsets_T:
-                    swapIndices(C_temp, T_temp, s_C, s_T)
-                    if self.overlap(C_temp) > curOverlap:
-                        goodActions.append((s_C, s_T))
-                    elif self.overlap(C_temp) == curOverlap:
-                        neutralActions.append((s_C, s_T))
-                    # reset values
-                    C_temp = C[:]
-                    T_temp = T[:]
-        return goodActions, neutralActions
-    def existsAction(self, C, T):
-        return True if self.getGoodActions(C,T) else False
-    def goodAction(self, H, P1, P2):
-        P1Action = H.P1Turn and self.existsAction(P1.hand, H.table)
-        P2Action = (not H.P1Turn) and self.existsAction(P2.hand, H.table)
+    def actionType(self, a, P, T, goals):
+        curOverlap = self.overlap(P.hand)
+        handTemp, Ttemp = P.hand[:], T[:]
+        swapIndices(handTemp, Ttemp, a[0], a[1])
+        newOverlap = self.overlap(handTemp)
+        if newOverlap > curOverlap:
+            return 1
+        elif newOverlap == curOverlap:
+            return 0
+        elif any(g.overlap(handTemp) >= curOverlap and g.suit == self.suit for g in goals):
+            return -1
+    def existsAction(self, P, T, goals):
+        return any(self.actionType(a, P, T, goals) == 1 for a in P.actions)
+    def goodAction(self, H, P1, P2, goals):
+        P1Action = H.P1Turn and self.existsAction(P1, H.table, goals)
+        P2Action = (not H.P1Turn) and self.existsAction(P2, H.table, goals)
         return int(P1Action or P2Action)
     def __repr__(self):
         return 'Goal(%d,%d)' % (self.start, self.suit)
@@ -102,10 +95,9 @@ class Card:
     #         r_s = H.R[s]
     #         prod = 1
     #         for i in xrange(s+1, H.curRound):
-    #             D = deckSize(H.R, i)
-    #             prod = prod * ((D - 4) / float(D))
+    #             D = H.deckSize(i) + H.R[i]
+    #             prod = prod * ((D-4)/float(D))
     #         result = (4 - r_s) / float(4 - r_s + r_s * prod)
-    #         assert 0 <= result and result <= 1
     #         return result
     def __repr__(self):
         return 'Card(%d,%d)' % (self.val, self.suit)
@@ -132,6 +124,7 @@ class Deck:
             if random.random() < self.p:
                 self.cards.append(c)
                 r += 1
+        random.shuffle(self.cards)
         return r
 
 class History:
@@ -165,27 +158,33 @@ class History:
 class Player:
     def __init__(self):
         self.hand = []
-    def act(self, optimalGoals, H):
-        # randomize order of optimalGoals
+        self.actions = self.possibleActions()
+    def possibleActions(self):
+        actions = []
+        for i in xrange(1, 4):
+            combsC = itertools.combinations(xrange(3), i)
+            combsT = itertools.combinations(xrange(4), i)
+            for (combC, combT) in itertools.product(combsC, combsT):
+                actions.append((combC, combT))
+        return actions
+    def act(self, goals, optimalGoals, H):
         random.shuffle(optimalGoals)
-        neutralActions = []
-        for g in optimalGoals:
-            good, neutral = g.getGoodActions(self.hand, H.table)
-            neutralActions += neutral
-            if good:
-                print 'Good action taken.\n'
-                action = random.choice(good)
-                swapIndices(self.hand, H.table, action[0], action[1])
+        random.shuffle(self.actions)
+        otherGoals = [g for g in goals if g not in optimalGoals]
+        neutral, sameSuit = [], []
+        for a in self.actions:
+            if any(g.actionType(a, self, H.table, goals) == 1 for g in optimalGoals):
+                swapIndices(self.hand, H.table, a[0], a[1])
                 return
-        if neutralActions:
-            print 'Neutral action taken.\n'
-            action = random.choice(neutralActions)
-            swapIndices(self.hand, H.table, action[0], action[1])
+            elif any(g.actionType(a, self, H.table, goals) == 0 for g in optimalGoals):
+                neutral.append(a)
+            elif any(g.actionType(a, self, H.table, otherGoals) == -1 for g in optimalGoals):
+                sameSuit.append(a)
+        if neutral:
+            a = random.choice(neutral)
+        elif sameSuit:
+            a = random.choice(sameSuit)
         else:
-            print 'Random action taken.\n'
-            numToSwap = random.choice(xrange(3)) + 1
-            combsHand = itertools.combinations(xrange(len(self.hand)), numToSwap)
-            combsTable = itertools.combinations(xrange(len(H.table)), numToSwap)
-            handIndices = random.choice(list(combsHand))
-            tableIndices = random.choice(list(combsTable))
-            swapIndices(self.hand, H.table, handIndices, tableIndices)
+            a = random.choice(self.actions)
+        # print 'Action: ', a
+        swapIndices(self.hand, H.table, a[0], a[1])
