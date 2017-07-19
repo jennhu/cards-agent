@@ -2,7 +2,7 @@ import numpy as np
 import random
 import game
 
-def runGame():
+def runGame(verbose=False):
     goals, deck, w, H, P1, P2 = game.initialize()
     optimalGoals = []
     numRounds = 0
@@ -12,37 +12,65 @@ def runGame():
 
     while not game.goalAchieved(goals, P1, P2):
         # assign current player and draw new cards
-        player = P1 if H.myTurn else P2
+        player = P1 if H.P1Turn else P2
+        other = P2 if H.P1Turn else P1
         H.table = deck.draw(4)
-        if not H.table:
-            print '*** FAILURE!'
-            print '*** Ran out of cards in %d rounds.' % numRounds
-            return False, numRounds
 
         # player takes action
-        print "Player's hand before acting: ", player.hand
+        if verbose:
+            print "---> Table: ", H.table
+            print "---> Player's hand: ", player.hand
+            print "---> Other's hand: ", other.hand
+            print
         player.act(optimalGoals, H)
-        print "Player's hand after acting: ", player.hand
 
         # reshuffle and update card history, weights, & optimal goals
         r = deck.reshuffle(H.table)
         H.update(P1.hand + P2.hand + H.table, r)
-        game.updateWeights(w, H, P1, P2, goals, [1,3,1])
+
+        assert H.deckSize(H.curRound) + r == len(deck.cards)
+
+        if len(deck.cards) < 4:
+            if verbose:
+                print '\x1b[0;30;41m' + 'Failure!' + '\x1b[0m'
+                print ' * Ran out of cards in %d rounds.' % numRounds
+                numAway = 6 - optimalGoals[0].overlap(P1.hand + P2.hand)
+                print ' * %d cards away from goal.' % numAway
+            return False, numRounds
+
+        game.updateWeights(w, H, P1, P2, goals, [1,1,1])
+        # if verbose:
+        #     print "weights: \n", w
         optimalGoals = game.getOptimalGoals(w, goals)
 
         # print new history and optimal goals
-        print H
-        print "Optimal goals: ", optimalGoals
-        print
+        if verbose:
+            print H
+            print " * Player 1's hand: ", P1.hand
+            print " * Player 2's hand: ", P2.hand
+            print " * Optimal goals: ", optimalGoals
+            print
 
         # prepare for next player's turn
-        H.myTurn = not H.myTurn
+        H.P1Turn = not H.P1Turn
         numRounds += 1
 
-    print '*** SUCCESS!'
-    print '*** ', optimalGoals[0].cards
-    print '*** Goal achieved in %d rounds.' % numRounds
+    if verbose:
+        print '\x1b[6;30;42m' + 'Success!' + '\x1b[0m'
+        print optimalGoals[0].cards
+        print ' * Goal achieved in %d rounds.' % numRounds
     return True, numRounds
 
 if __name__ == '__main__':
-    runGame()
+    numTrials = 1
+    successes = []
+    roundsPlayed = []
+    for _ in xrange(numTrials):
+        success, numRounds = runGame(verbose=True)
+        successes.append(success)
+        roundsPlayed.append(numRounds)
+    percentWin = sum([1 for s in successes if s]) / float(numTrials)
+    meanRoundsPlayed = np.mean(roundsPlayed)
+
+    print 'Percentage of games won: ', percentWin
+    print 'Mean number of rounds played: ', meanRoundsPlayed
