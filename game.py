@@ -2,7 +2,7 @@ import numpy as np
 import itertools
 import random
 
-def swapIndices(A, B, A_indices, B_indices):
+def swap(A, B, A_indices, B_indices):
     if len(A_indices) != len(B_indices):
         print 'Must enter same number of indices to swap.'
     else:
@@ -25,7 +25,7 @@ def getWeights(H, P1, P2, goals, alpha):
     C = P1.hand + P2.hand
     w = []
     for g in goals:
-        feats = [g.overlap(C), g.likelihood(H, P1, P2), g.goodAction(H, P1, P2, goals)]
+        feats = [g.overlap(C), g.likelihood(H, P1, P2), g.goodAction(H, P1, P2)]
         w.append(np.dot(alpha, feats))
     return w
 
@@ -40,7 +40,6 @@ class Goal:
         self.start = start
         self.suit = suit
         self.cards = self.toCards()
-        self.goodActions = []
     def toCards(self):
         return [Card(v,self.suit) for v in xrange(self.start,self.start+6)]
     def overlap(self, C):
@@ -50,23 +49,12 @@ class Goal:
         # return np.prod([1-g.probDiscarded(H, P1, P2) for g in self.cards])
         # return sum([np.log(g.probInPlay(H, P1, P2)) for g in self.cards])
         # return sum([np.log(1 - g.probDiscarded(H, P1, P2)) for g in self.cards])
-    def actionType(self, a, P, T, goals):
-        curOverlap = self.overlap(P.hand)
-        handTemp, Ttemp = P.hand[:], T[:]
-        swapIndices(handTemp, Ttemp, a[0], a[1])
-        newOverlap = self.overlap(handTemp)
-        if newOverlap > curOverlap:
-            return 1
-        elif newOverlap == curOverlap:
-            return 0
-        elif any(g.overlap(handTemp) >= curOverlap and g.suit == self.suit for g in goals):
-            return -1
-    def existsAction(self, P, T, goals):
-        return any(self.actionType(a, P, T, goals) == 1 for a in P.actions)
-    def goodAction(self, H, P1, P2, goals):
-        P1Action = H.P1Turn and self.existsAction(P1, H.table, goals)
-        P2Action = (not H.P1Turn) and self.existsAction(P2, H.table, goals)
-        return int(P1Action or P2Action)
+    def bestImprovement(self, P, T):
+        improvements = P.evaluateActions([self], T)
+        return improvements.max()
+    def goodAction(self, H, P1, P2):
+        player = P1 if H.P1Turn else P2
+        return self.bestImprovement(player, H.table)
     def __repr__(self):
         return 'Goal(%d,%d)' % (self.start, self.suit)
 
@@ -81,10 +69,7 @@ class Card:
         else:
             s = H.lastRoundSeen(self)
             r_s = H.R[s]
-            prod = 1
-            for i in xrange(s+1, H.curRound):
-                D = H.deckSize(i) + H.R[i]
-                prod = prod * ((D-4)/float(D))
+            prod = np.prod([(H.deckSize(i) + H.R[i] - 4) / float(H.deckSize(i) + H.R[i]) for i in xrange(s+1, H.curRound)])
             return prod * r_s / 4.0
     # def probDiscarded(self, H, P1, P2):
     #     visible = P1.hand + P2.hand + H.table
@@ -167,24 +152,39 @@ class Player:
             for (combC, combT) in itertools.product(combsC, combsT):
                 actions.append((combC, combT))
         return actions
-    def act(self, goals, optimalGoals, H):
-        random.shuffle(optimalGoals)
-        random.shuffle(self.actions)
-        otherGoals = [g for g in goals if g not in optimalGoals]
-        neutral, sameSuit = [], []
-        for a in self.actions:
-            if any(g.actionType(a, self, H.table, goals) == 1 for g in optimalGoals):
-                swapIndices(self.hand, H.table, a[0], a[1])
-                return
-            elif any(g.actionType(a, self, H.table, goals) == 0 for g in optimalGoals):
-                neutral.append(a)
-            elif any(g.actionType(a, self, H.table, otherGoals) == -1 for g in optimalGoals):
-                sameSuit.append(a)
-        if neutral:
-            a = random.choice(neutral)
-        elif sameSuit:
-            a = random.choice(sameSuit)
-        else:
-            a = random.choice(self.actions)
-        # print 'Action: ', a
-        swapIndices(self.hand, H.table, a[0], a[1])
+    def act(self, optimalGoals, H):
+        randAction = random.choice(self.actions)
+        swap(self.hand, H.table, randAction[0], randAction[1])
+        # imp = self.evaluateActions(optimalGoals, H.table)
+        # best = imp.max()
+        # if best >= 0:
+        #     aIndex, gIndex = np.unravel_index(imp.argmax(), imp.shape)
+        #     goodAction = self.actions[aIndex]
+        #     swap(self.hand, H.table, goodAction[0], goodAction[1])
+        # else:
+        #     suits = [g.suit for g in optimalGoals]
+        #     modeSuit = max(set(suits), key=suits.count)
+        #     suitAction = next((a for a in self.actions if self.suitImprovement(a, modeSuit, H.table) >= 0), None)
+        #     if suitAction:
+        #         swap(self.hand, H.table, suitAction[0], suitAction[1])
+        #     else:
+        #         randAction = random.choice(self.actions)
+        #         swap(self.hand, H.table, randAction[0], randAction[1])
+    def suitImprovement(self, a, s, T):
+        curSuitOverlap = sum([1 for c in self.hand if c.suit == s])
+        handTemp, tableTemp = self.hand[:], T[:]
+        swap(handTemp, tableTemp, a[0], a[1])
+        newSuitOverlap = sum([1 for c in handTemp if c.suit == s])
+        return newSuitOverlap - curSuitOverlap
+    def goalImprovement(self, a, g, T):
+        curOverlap = g.overlap(self.hand)
+        handTemp, tableTemp = self.hand[:], T[:]
+        swap(handTemp, tableTemp, a[0], a[1])
+        newOverlap = g.overlap(handTemp)
+        return newOverlap - curOverlap
+    def evaluateActions(self, gList, T):
+        improvements = np.zeros((len(self.actions), len(gList)))
+        for (i, a) in enumerate(self.actions):
+            for (j, g) in enumerate(gList):
+                improvements[i][j] = self.goalImprovement(a, g, T)
+        return improvements

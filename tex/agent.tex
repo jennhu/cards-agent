@@ -2,7 +2,7 @@
 
 % BASIC PACKAGES
 \usepackage{latexsym}
-\usepackage{amssymb,amsmath,pgf,graphicx}
+\usepackage{amssymb,amsmath,pgf,graphicx,bm}
 \usepackage{amsthm}
 \usepackage{thmtools}
 
@@ -11,6 +11,7 @@
 \usepackage{tgpagella} % font
 \usepackage[margin=0.8in]{geometry}
 \usepackage{setspace}
+\usepackage{caption}
 %\onehalfspacing % or
 \doublespacing
 
@@ -56,7 +57,7 @@ In a standard 52-card deck, there are 52 possible straight flushes of 6 cards. E
 
 \section{The Features}
 
-When expert humans play the game, they tend to evaluate goals based on three features: (1) how many visible cards (i.e. in the hands and table) coincide with the goal, (2) how likely it is to obtain the goal based on which cards might have already been discarded, and (3) whether or not they can take an action that brings them closer to the goal during their turn. I call these features $\overlap$, $\lkhd$, and $\goodaction$, respectively.
+When expert humans play the game, they tend to evaluate goals based on three features: (1) how many visible cards (i.e. in the hands and table) coincide with the goal, (2) how likely it is to obtain the goal based on which cards might have already been discarded, and (3) how much closer their range of possible actions can bring them to the goal during their turn. I call these features $\overlap$, $\lkhd$, and $\goodaction$, respectively.
 
 \subsection{$\overlap$}
 
@@ -72,10 +73,11 @@ Another way of thinking of $\overlap$ is that $6-\overlap(G,C)$ represents the n
 
 $\lkhd$ measures how likely it is that a certain goal $G$ can be obtained given all previous history $H$. $\lkhd$ is defined as the following:
 \begin{align}
-  \mathcal{L}(G,H) &= \sum_{g \in G} \log(1 - P(g \text{ has been discarded}|H))
+  \mathcal{L}(G,H) &= \prod_{g \in G} P(g \text{ is still in play}|H)
+  % \mathcal{L}(G,H) &= \sum_{g \in G} \log(1 - P(g \text{ has been discarded}|H))
 \end{align}
 
-Given a card $g$ and history $H$, we can find $P(g \text{ has been discarded}|H)$ in the following way. First, we know $H$ contains information about $r_i$, the number of cards reshuffled at round $i$ for all $i$, as well as which cards we have and have not seen. Let $s$ be the index of the round that $g$ was last seen, let $n$ be the number of rounds that have occurred between $s$ and now, and let $D_i$ be the size of the deck at round $i$.
+Given a card $g$ and history $H$, we can find $P(g \text{ is still in play}|H) = 1 - P(g \text{ has been discarded}|H)$ in the following way. First, we know $H$ contains information about $r_i$, the number of cards reshuffled at round $i$ for all $i$, as well as which cards we have and have not seen. Let $s$ be the index of the round that $g$ was last seen, let $n$ be the number of rounds that have occurred between $s$ and now, and let $D_i$ be the size of the deck at round $i$.
 
 \begin{claim}
 \begin{equation}
@@ -87,7 +89,12 @@ P(g \text{ has been discarded}|H) = \begin{cases}
 \end{claim}
 
 \begin{proof}
-  It is easy to see that a card $g$ cannot have been discarded if it is currently in the hands, on the table, or unseen (in the deck). Now, consider the case where $g$ has not been seen for $n$ rounds (i.e. since round $s$). Let $F$ be the event that $g$ was discarded at round $s$, and let $U$ be the event that $g$ hasn't been seen for $n$ rounds. By Bayes' Rule, we have:
+  It is easy to see that a card $g$ cannot have been discarded if it is currently in the hands, on the table, or unseen (in the deck). Now, consider the case where $g$ has not been seen for $n$ rounds (i.e. since round $s$). Let $F$ be the event that $g$ was discarded at round $s$, and let $U$ be the event that $g$ hasn't been seen for $n$ rounds. By the law of total probability, we have
+\begin{equation}
+  P(F) = P(F|U)P(U) + P(F|U^c)P(U^c).
+\label{eq:lotp} \end{equation}
+
+The second term gives us $0$, because if it is not the case that $g$ hasn't been seen for $n$ rounds, then $g$ couldn't have been discarded at round $s$. Consider only the first term. By Bayes' Rule, we have:
 \begin{align}
   P(F|U) &= \frac{P(U|F)P(F)}{P(U)} \\
   &= \frac{(1)\left(\frac{4-r_s}{4}\right)}{P(U|F)P(F) + P(U|F^c)P(F^c)} \\
@@ -106,9 +113,10 @@ Using this result and simplifying, we finally obtain
 \begin{equation}
   P(F|U) = \frac{4-r_s}{4-r_s+r_s\prod_{j=1}^n(1-\frac{4}{{D_{s+j}}})}.
 \end{equation}
-\end{proof}
 
-See (\ref{eq:decksize}) for an expression for the deck size at each round.
+Plugging this back into (\ref{eq:lotp}), we are left with $\frac{4-r_s}{4}$. This makes intuitive sense. \end{proof}
+
+% See (\ref{eq:decksize}) for an expression for the deck size at each round.
 
 \subsubsection{Deck Size}
 
@@ -128,7 +136,7 @@ The size of the deck at round $k > 0$ is given by
       &= (46 + \sum_{i=1}^{n-1} r_i - 4n) + r_n - 4 \\
       &= 46 + \sum_{i=1}^n r_i - 4(n+1)
     \end{align}
-  By induction, (\ref{eq:decksize}) holds for all values of $k$.
+  By induction, (\ref{eq:decksize}) holds for all values of $k$. Once $D_k \leq 0$, the game is over.
 \end{proof}
 
 \subsection{$\goodaction$}
@@ -145,45 +153,64 @@ where $T_i$ and $A_i$ are defined as
     1 & \text{currently Player $i$'s turn} \\
     0 & \text{o.w.}
   \end{cases} \\
-  A_i(G) &= \begin{cases}
-    1 & \exists \text{ an action Player $i$ can take that will bring them closer to $G$} \\
-    0 & \text{o.w.}
-  \end{cases}
+  A_i(G) &= \max\{\text{all possible improvements Player $i$ can make towards $G$}\}
+  % A_i(G) &= \begin{cases}
+  %   1 & \exists \text{ an action Player $i$ can take that will bring them closer to $G$} \\
+  %   0 & \text{o.w.}
+  % \end{cases}
 \end{align}
 
-An ``action'' is defined as a swap of 1, 2, or 3 cards between a player's hand and the table. Getting ``closer'' to a goal $G$ is equivalent to increasing the $\overlap$. Note that $\goodaction(G)$ implicitly depends on the game history $H$ in order to access information about whose turn it is and the players' hands.
+An ``action'' is defined as a swap of 1, 2, or 3 cards between a player's hand and the table. Getting ``closer'' to a goal $G$ is equivalent to increasing the $\overlap$; similarly, the ``improvement'' towards a goal is the change in $\overlap$ after completing the action (the improvement can be negative). Note that $\goodaction(G)$ implicitly depends on the game history $H$ in order to access information about whose turn it is and the players' hands.
 
 \section{Evaluating Goals}
 
 Every time the history $H$ is updated and we observe a new set of cards $C$, the weights $w_i$ for each goal $G_i$ are updated with a linear combination of the features:
 \begin{equation}
-  w_i := \alpha_0 \cdot \overlap(G_i,C) + \alpha_1 \cdot \lkhd(G_i,H) + \alpha_2 \cdot \goodaction(G_i)
+  w_i := \bm{\alpha} \cdot [\overlap(G_i,C), \lkhd(G_i,H), \goodaction(G_i)]
 \label{eq:w-update} \end{equation}
 
-After the weights are updated, the model returns the ``optimal'' goal(s), which correspond to the max value(s) in $\bvec{w}$.
+After the weights are updated, the model returns the optimal goal(s), which correspond to the max value(s) in $\bvec{w}$.
 
-The values of $\{\alpha\}$ should be set to reflect the agent's preferences. A more human-like agent might weigh $\overlap$ over $\lkhd$, for example, since it tends to consider only the visible cards and does not calculate probabilities based on game history. Expert humans might also be more likely to place greater weight on $\goodaction$, which would be reflected in a high $\alpha_2$ value.
+\subsection{Player Actions}
 
-\section{Issues and Next Steps}
+A player chooses an action in the following way. First, the player calculates the improvements made by each possible action for each of the optimal goals. If the maximal improvement is nonnegative, then the player performs the action that gives that max improvement. Otherwise, the player calculates the most common suit appearing among the optimal goals and checks if any possible actions will increase the number of cards in their hand with that suit. If no such actions exist, the player executes a randomly chosen action.
 
-This goal evaluation model is rather simple, but its output at each step seems reasonable. Here are a few issues I've identified at this point:
+% The values of $\bm{\alpha} \in \mathbb{R}^3$ should be set to reflect the agent's preferences. A more human-like agent might weigh $\overlap$ over $\lkhd$, for example, since it tends to consider only the visible cards and does not calculate probabilities based on game history. Expert humans might also be more likely to place greater weight on $\goodaction$, which would be reflected in a high $\alpha_2$ value.
 
-The first issue is what values to choose for $\{\alpha\}$. Since we don't have a ``ground truth'' optimal goal baseline (which is why we're making this one!), it's difficult to evaluate the model's output in a rigorous way. Different values of $\{\alpha\}$ do noticeably affect the output, and it seems unprincipled to rely on human judgment to compare the outputs.
+\section{Discussion}
 
-I am also wondering what other features we should be including. Again, I only thought of these three based on my experiences as an expert human player, but I am surely missing something that would bring the model closer to a ``ground truth''. Even if we can't create a perfect model, what heuristics should we be using to measure its performance?
+\subsection{Initial Results}
 
-% \section{Preliminary Results}
-%
-% \begin{table}[hpt]
-%   \centering
-%   \begin{tabular}{cccc}
-%     $\bvec{\alpha}$ & Trial 1 & Trial 2 & Trial 3 \\ \hline
-%       $[1,1,1]$ & 16\%, 20.04 & 12\%, 20.25 & 8\%, 20.85 \\
-%       $[1,5,5]$ & 2\%, 21.83  & 5\%, 21.77  & 8\%, 20.6 \\
-%       $[5,1,1]$ & 9\%, 21.27  & 6\%, 21.2   & 5\%, 21.01 \\ \hline
-%   \end{tabular}
-%   \caption{}
-%   \label{table:alphas}
-% \end{table}
+Figure \ref{fig:success} shows the success rates (over 50 trials) for games played for $p \in \{0, 0.25, 0.5, 0.75, 1\}$ and $\bm{\alpha} \in \{[1,1,1], [1,2,3], [1,3,2], [2,1,3], [2,3,1], [3,1,2], [3,2,1]\}$. Success is defined by achieving a 6-card straight flush before the deck runs out of cards.
+
+\begin{figure}[hpt]
+  \centering
+  \captionsetup{justification=centering,margin=2cm}
+  \includegraphics[scale=0.8]{../plots/successAlphaP.png}
+  % \includegraphics[scale=0.8]{../plots/successAlphaP_RANDOM.png}
+  \caption{Success rates across different values of $\bm{\alpha}$ and $p$.} %The bottom graph shows baseline performance for random player actions.
+  \label{fig:success}
+\end{figure}
+
+As expected, $p=1$ gives a success rate of 1, as the deck never runs out of cards. The success rate increases as $p$ increases, but it doesn't seem to be a linear relationship. Interestingly, the model had best performance when each feature was weighed equally, corresponding to $\bm{\alpha} = [1,1,1]$. $\bm{\alpha} = [2,3,1]$ also seemed to do well across values of $p$, but more trials are needed to robustly compare results.
+
+Figure \ref{fig:rounds} shows the mean number of rounds played per game (over 50 trials) for games played for $p \in \{0, 0.25, 0.5, 0.75, 1\}$ and $\bm{\alpha} \in \{[1,1,1], [1,2,3], [1,3,2], [2,1,3], [2,3,1], [3,1,2], [3,2,1]\}$.
+
+\begin{figure}[hpt]
+  \centering
+  \captionsetup{justification=centering,margin=2cm}
+  \includegraphics[scale=0.8]{../plots/roundsAlphaP.png}
+  % \includegraphics[scale=0.8]{../plots/roundsAlphaP_RANDOM.png}
+  \caption{Mean number of rounds across different values of $\bm{\alpha}$ and $p$.} %The bottom graph shows baseline performance for random player actions.
+  \label{fig:rounds}
+\end{figure}
+
+The number of rounds tends to increase as $p$ increases, as expected. Like the success rates, the number of rates does not seem to increase linearly.
+
+\subsection{Observations}
+
+Although this simple model reflects how humans might approach the card game, it doesn't seem optimal in a ``ground truth'' sense. Ideally, I would like to combine the notions of $\lkhd$ and $\goodaction$, because the likelihood or feasibility of obtaining a goal should depend on the order of turns. On the other hand, having the features separated in this naive way might help us detect changes in human players' intentions as their language changes.
+
+I also need to think more about how players should choose their actions. The greedy algorithm I've written seems reasonable, but still a little bit ad hoc.
 
 \end{document}
