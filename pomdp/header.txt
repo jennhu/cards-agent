@@ -1,0 +1,30 @@
+# ****************** Basics ******************
+# Number of states: 20
+# Number of actions: 6
+# Number of observations: 8
+#
+# Task: maximization
+# Horizon: infinite
+# Discount: 0.9
+# Goal: big reward when move action at state 7
+#
+# States: numbered from 0 to 19
+#
+# Actions: numbered from 0 to 5
+# 0 - move north
+# 1 - move south
+# 2 - move east
+# 3 - move west
+# 4 - make observation (north-south)
+# 5 - make observation (east-west)
+#
+# Observations: numbered from 0 to 7
+# 0 no-observation (unknown)
+# 1 no wall
+# 2 north wall
+# 3 south wall
+# 4 both north and south walls
+# 5 east wall
+# 6 west wall
+# 7 both east and west walls
+# ********************************************

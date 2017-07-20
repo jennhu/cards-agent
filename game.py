@@ -1,3 +1,9 @@
+'''
+game.py contains the basic functionality of the game, including functions
+for updating weights and getting optimal goals as well as the implementation
+of classes representing goals, cards, decks, histories, and players.
+'''
+
 import numpy as np
 import itertools
 import random
@@ -154,23 +160,21 @@ class Player:
                 actions.append((combC, combT))
         return actions
     def act(self, optimalGoals, H):
-        randAction = random.choice(self.actions)
-        swap(self.hand, H.table, randAction[0], randAction[1])
-        # imp = self.evaluateActions(optimalGoals, H.table)
-        # best = imp.max()
-        # if best >= 0:
-        #     aIndex, gIndex = np.unravel_index(imp.argmax(), imp.shape)
-        #     goodAction = self.actions[aIndex]
-        #     swap(self.hand, H.table, goodAction[0], goodAction[1])
-        # else:
-        #     suits = [g.suit for g in optimalGoals]
-        #     modeSuit = max(set(suits), key=suits.count)
-        #     suitAction = next((a for a in self.actions if self.suitImprovement(a, modeSuit, H.table) >= 0), None)
-        #     if suitAction:
-        #         swap(self.hand, H.table, suitAction[0], suitAction[1])
-        #     else:
-        #         randAction = random.choice(self.actions)
-        #         swap(self.hand, H.table, randAction[0], randAction[1])
+        imp = self.evaluateActions(optimalGoals, H.table)
+        best = imp.max()
+        if best >= 0:
+            aIndex, gIndex = np.unravel_index(imp.argmax(), imp.shape)
+            goodAction = self.actions[aIndex]
+            swap(self.hand, H.table, goodAction[0], goodAction[1])
+        else:
+            suits = [g.suit for g in optimalGoals]
+            modeSuit = max(set(suits), key=suits.count)
+            suitAction = next((a for a in self.actions if self.suitImprovement(a, modeSuit, H.table) >= 0), None)
+            if suitAction:
+                swap(self.hand, H.table, suitAction[0], suitAction[1])
+            else:
+                randAction = random.choice(self.actions)
+                swap(self.hand, H.table, randAction[0], randAction[1])
     def suitImprovement(self, a, s, T):
         curSuitOverlap = sum([1 for c in self.hand if c.suit == s])
         handTemp, tableTemp = self.hand[:], T[:]

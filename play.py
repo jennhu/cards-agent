@@ -1,3 +1,9 @@
+'''
+play.py allows a human user to manually play the card game by specifying
+the indices of cards they want to swap at each round. This file is NOT
+up-to-date with the current version of game.py.
+'''
+
 from game import Goal, Card, Deck, History, swapIndices
 import numpy as np
 

@@ -1,3 +1,9 @@
+'''
+run.py runs the card game with two agents playing each other.
+It supports options to plot and print metrics such as success rate
+and mean number of rounds taken per game.
+'''
+
 import matplotlib.pyplot as plt
 import numpy as np
 import time
