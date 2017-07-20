@@ -60,7 +60,7 @@ if __name__ == '__main__':
     numTrials = 50
 
     alphas = [[1,1,1], [1,2,3], [1,3,2], [2,1,3], [2,3,1], [3,1,2], [3,2,1]]
-    ps = [0, 0.25, 0.5]
+    ps = [0, 0.25, 0.5, 0.75]
 
     # create plot
     fig, ax = plt.subplots()

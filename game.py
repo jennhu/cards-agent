@@ -69,8 +69,9 @@ class Card:
         else:
             s = H.lastRoundSeen(self)
             r_s = H.R[s]
-            prod = np.prod([(H.deckSize(i) + H.R[i] - 4) / float(H.deckSize(i) + H.R[i]) for i in xrange(s+1, H.curRound)])
-            return prod * r_s / 4.0
+            return r_s / 4.0
+            # prod = np.prod([(H.deckSize(i) + H.R[i] - 4) / float(H.deckSize(i) + H.R[i]) for i in xrange(s+1, H.curRound)])
+            # return prod * r_s / 4.0
     # def probDiscarded(self, H, P1, P2):
     #     visible = P1.hand + P2.hand + H.table
     #     if self in visible or self not in H.seenDict.keys():
