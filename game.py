@@ -22,7 +22,7 @@ class Goal:
         self.cards = self.toCards()
 
     def toCards(self):
-        return [Card(v,self.suit) for v in xrange(self.start,self.start+6)]
+        return [Card(self.start + i, self.suit) for i in xrange(6)]
 
     def overlap(self, C):
         return len(set(C) & set(self.cards))
@@ -177,7 +177,8 @@ class CardGame:
         self.goals = [Goal(start, suit) for start in xrange(13) for suit in xrange(4)]
 
     def goalAchieved(self):
-        return any(g.overlap(self.P1.hand+self.P2.hand) == 6 for g in self.goals)
+        return any(g.overlap(self.P1.hand+self.P2.hand) == 5 for g in self.goals)
+        # return any(g.overlap(self.P1.hand+self.P2.hand) == 6 for g in self.goals)
 
     def deckSize(self):
         return len(self.deck.cards)
@@ -241,7 +242,7 @@ class CardGame:
     def playMessage(self, learner):
         print 'Round {}'.format(self.numRounds)
         print ' * Table:\t\t{}'.format(self.table)
-        print ' * Player hand:\t\t{}'.format(self.player.hand)
+        print '\033[1m' + ' * Player hand:\t\t{}'.format(self.player.hand) + '\033[0m'
         print ' * Other hand:\t\t{}'.format(self.other.hand)
         if learner:
             print ' * Action:\t\t{}\n'.format(self.player.actions[learner.lastAction])

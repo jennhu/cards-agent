@@ -4,15 +4,14 @@ import random
 import time
 import sarsa
 import game
+import csv
 
 '''
 Runs a single instance of the card game.
 '''
-def runGame(agent, learner, p=0.5, alpha=[1,1,1], verbose=False):
-    if agent == 'sarsa':
-        assert learner
-    elif agent == 'human':
-        assert verbose
+def runGame(agent, learner, p, verbose, alpha=[1,1,1]):
+    if agent == 'human' and not verbose:
+        print 'WARNING: turn on verbose mode to play as a human.'
 
     # initialize new game
     G = game.CardGame(p)
@@ -29,40 +28,49 @@ def runGame(agent, learner, p=0.5, alpha=[1,1,1], verbose=False):
             end = time.time()
             if verbose:
                 G.successMessage()
-            if learner:
-                learner.reset()
             return (1, G.numRounds, G.lastMaxOverlap, end - start)
         elif G.deckSize() < 4:
             end = time.time()
             if verbose:
                 G.failMessage()
-            if learner:
-                learner.reset()
             return (0, G.numRounds, G.lastMaxOverlap, end - start)
         else:
             if verbose:
                 G.playMessage(learner)
-            if learner:
+            if agent == 'sarsa':
                 learner.update(G)
             else:
                 G.updateWeightsGoals(alpha)
                 if agent == 'human':
                     # prompt user to enter which cards to swap
-                    handInds = input('Enter list of indices to swap from player hand: ')
-                    tableInds = input('Enter list of indices to swap from table: ')
+                    handInds = input('List of indices to swap from hand: ')
+                    tableInds = input('List of indices to swap from table: ')
                     game.swap(G.player.hand, G.table, handInds, tableInds)
                 elif agent == 'base':
                     G.player.act(G)
             G.nextRound()
 
 '''
-Returns the success rate and mean number of rounds per game from hist,
-a list of (<1 if success else 0>, <number of rounds>) tuples.
+Prints a summary of information from hist, a list of
+(<1 if success else 0>, <number of rounds>) tuples.
 '''
-def getResults(hist):
-    return [np.mean(l) for l in zip(*hist)]
-    # successes, rounds, endMaxOverlaps, times = zip(*hist)
-    # return np.mean(successes), np.mean(rounds), np.mean(endMaxOverlaps), np.mean(times)
+def summarize(hist):
+    successes, rounds, overlaps, times = [np.mean(l) for l in zip(*hist)]
+    succRate, succNum, numGames = successes*100, int(successes*len(hist)), len(hist)
+    print '* Success rate:\t\t{}% ({}/{})'.format(succRate, succNum, numGames)
+    print '* Mean rounds per game:\t{}'.format(rounds)
+    print '* Mean final overlap:\t{}'.format(overlaps)
+    print '* Mean secs per game:\t{}'.format(times)
+
+'''
+Writes data in hist to a specified output file as a csv.
+'''
+def write(hist, outfile):
+    with open(outfile, 'wb') as out:
+        csvOut = csv.writer(out)
+        csvOut.writerow(['success', 'numRounds', 'finalMaxOverlap', 'seconds'])
+        for row in hist:
+            csvOut.writerow(row)
 
 '''
 Main function. Simulates learning for a specified number of epochs.
@@ -76,26 +84,30 @@ Agent types:
 '''
 if __name__ == '__main__':
     # parse command-line flags
-    parser = argparse.ArgumentParser(description='Plays the card game with different types of agents.')
-    parser.add_argument('-v', '--verbose', help='toggle verbosity', action='store_true')
-    parser.add_argument('-a', '--agent', choices=['human', 'base', 'sarsa'], help='select type of agent')
-    parser.add_argument('-p', type=float, help='probability of reshuffling a card')
-    parser.add_argument('-t', type=int, help='number of trials/epochs to run')
+    parser = argparse.ArgumentParser(description='Play the card game!')
+    parser.add_argument('-v', '--verbose',
+                        help='toggle verbosity', action='store_true')
+    parser.add_argument('-a', '--agent', choices=['human', 'base', 'sarsa'],
+                        help='type of agent')
+    parser.add_argument('-p', type=float, default=0.5,
+                        help='probability of reshuffling a card')
+    parser.add_argument('-N', type=int, default=1,
+                        help='number of trials/epochs to run')
+    parser.add_argument('-o', '--out', default='hist.csv',
+                        help='file path to write history csv')
     args = parser.parse_args()
 
-    if args.agent == 'sarsa':
-        learner = sarsa.Learner()
-    else:
-        learner = None
+    # initialize learner and hist
+    learner = sarsa.Learner() if args.agent == 'sarsa' else None
+    hist = [None] * args.N
 
-    hist = [None] * args.t
-    for i in xrange(args.t):
-        res = runGame(args.agent, learner, p=args.p, verbose=args.verbose)
+    for i in xrange(args.N):
+        res = runGame(args.agent, learner, args.p, args.verbose)
         hist[i] = res
-        # print 'theta after epoch {}: {}'.format(i, agent.theta)
-    successRate, meanNumRounds, meanEndMaxOverlaps, meanSecs = getResults(hist)
-    print '\nhist:\n{}\n'.format(np.array(hist))
-    print '* Success rate:\t\t{}%'.format(successRate * 100)
-    print '* Mean rounds per game:\t{}'.format(meanNumRounds)
-    print '* Mean final overlap:\t{}'.format(meanEndMaxOverlaps)
-    print '* Mean secs per game:\t{}'.format(meanSecs)
+        if learner:
+            print 'theta #{}: {}'.format(i, learner.theta)
+            print 'last reward: {}\n'.format(learner.lastReward)
+
+    # write hist to csv and print summary of results
+    write(hist, args.out)
+    summarize(hist)
