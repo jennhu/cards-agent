@@ -1,71 +1,101 @@
-'''
-play.py allows a human user to manually play the card game by specifying
-the indices of cards they want to swap at each round. This file is NOT
-up-to-date with the current version of game.py.
-'''
-
-from game import Goal, Card, Deck, History, swapIndices
+import argparse
 import numpy as np
+import random
+import time
+import sarsa
+import game
 
-def generateGoals():
-    return [Goal(start, suit) for start in xrange(13) for suit in xrange(4)]
+'''
+Runs a single instance of the card game.
+'''
+def runGame(agent, learner, p=0.5, alpha=[1,1,1], verbose=False):
+    if agent == 'sarsa':
+        assert learner
+    elif agent == 'human':
+        assert verbose
 
-def initialize():
-    goals = generateGoals()
-    deck = Deck(0.5)
-    w = np.zeros(len(goals))
-    H = History(True)
-    return goals, deck, w, H
+    # initialize new game
+    G = game.CardGame(p)
+    start = time.time()
 
-def updateWeights(w, H, goals, alpha):
-    C = H.myHand + H.yourHand
-    for (i,g) in enumerate(goals):
-        feats = [g.overlap(C), g.likelihood(H), g.goodAction(H)]
-        w[i] = np.dot(alpha, feats)
+    if learner:
+        learner.lastAction = learner.getAction(G)
+    else:
+        G.updateWeightsGoals(alpha)
 
-def getOptimalGoals(w, goals):
-    return [goals[i] for i, x in enumerate(w) if x == max(w)]
+    # main game loop
+    while True:
+        if G.goalAchieved():
+            end = time.time()
+            if verbose:
+                G.successMessage()
+            if learner:
+                learner.reset()
+            return (1, G.numRounds, G.lastMaxOverlap, end - start)
+        elif G.deckSize() < 4:
+            end = time.time()
+            if verbose:
+                G.failMessage()
+            if learner:
+                learner.reset()
+            return (0, G.numRounds, G.lastMaxOverlap, end - start)
+        else:
+            if verbose:
+                G.playMessage(learner)
+            if learner:
+                learner.update(G)
+            else:
+                G.updateWeightsGoals(alpha)
+                if agent == 'human':
+                    # prompt user to enter which cards to swap
+                    handInds = input('Enter list of indices to swap from player hand: ')
+                    tableInds = input('Enter list of indices to swap from table: ')
+                    game.swap(G.player.hand, G.table, handInds, tableInds)
+                elif agent == 'base':
+                    G.player.act(G)
+            G.nextRound()
 
+'''
+Returns the success rate and mean number of rounds per game from hist,
+a list of (<1 if success else 0>, <number of rounds>) tuples.
+'''
+def getResults(hist):
+    return [np.mean(l) for l in zip(*hist)]
+    # successes, rounds, endMaxOverlaps, times = zip(*hist)
+    # return np.mean(successes), np.mean(rounds), np.mean(endMaxOverlaps), np.mean(times)
+
+'''
+Main function. Simulates learning for a specified number of epochs.
+
+Agent types:
+ * 'human' allows a human user to manually play the card game by specifying
+    the indices of cards they want to swap at each round.
+ * 'base' runs the card game with two baseline agents playing each other.
+ * 'sarsa' runs the card game with a SARSA agent learning from the environment.
+
+'''
 if __name__ == '__main__':
-    goals, deck, w, H = initialize()
-    H.myHand = deck.draw(3)
-    H.yourHand = deck.draw(3)
+    # parse command-line flags
+    parser = argparse.ArgumentParser(description='Plays the card game with different types of agents.')
+    parser.add_argument('-v', '--verbose', help='toggle verbosity', action='store_true')
+    parser.add_argument('-a', '--agent', choices=['human', 'base', 'sarsa'], help='select type of agent')
+    parser.add_argument('-p', type=float, help='probability of reshuffling a card')
+    parser.add_argument('-t', type=int, help='number of trials/epochs to run')
+    args = parser.parse_args()
 
-    optimalGoals = []
+    if args.agent == 'sarsa':
+        learner = sarsa.Learner()
+    else:
+        learner = None
 
-    while not any(g.overlap(H.myHand + H.yourHand) == 6 for g in goals):
-        # draw new cards
-        H.table = deck.draw(4)
-        r = deck.reshuffle(H.table)
-
-        # update text and hand based on turn
-        whose = 'MY' if H.myTurn else 'YOUR'
-        hand = H.myHand if H.myTurn else H.yourHand
-
-        # print updated cards
-        print "----> It's %s turn." % whose
-        print "----> My hand: ", H.myHand
-        print "----> Your hand: ", H.yourHand
-        print "----> Table: ", H.table
-
-        # prompt user to enter which cards to swap
-        hand_inds = input('Enter list of indices to swap from %s hand: ' % whose)
-        table_inds = input('Enter list of indices to swap from table: ')
-        swapIndices(hand, H.table, hand_inds, table_inds)
-
-        # update card history, weights, and optimal goals
-        H.update(H.myHand + H.yourHand + H.table, r)
-        updateWeights(w, H, goals, [1,3,1])
-        optimalGoals = getOptimalGoals(w, goals)
-
-        # print new history and optimal goals
-        print
-        print H
-        print "Optimal goals: ", optimalGoals
-        print
-
-        # next player's turn
-        H.myTurn = not H.myTurn
-
-    print 'CONGRATULATIONS! You\'ve found a straight flush!'
-    print optimalGoals[0].cards
+    hist = [None] * args.t
+    for i in xrange(args.t):
+        res = runGame(args.agent, learner, p=args.p, verbose=args.verbose)
+        hist[i] = res
+        # print 'theta after epoch {}: {}'.format(i, agent.theta)
+    successRate, meanNumRounds, meanEndMaxOverlaps, meanSecs = getResults(hist)
+    print '\nhist:\n{}\n'.format(np.array(hist))
+    print '* Success rate:\t\t{}%'.format(successRate * 100)
+    print '* Mean rounds per game:\t{}'.format(meanNumRounds)
+    print '* Mean final overlap:\t{}'.format(meanEndMaxOverlaps)
+    print '* Mean secs per game:\t{}'.format(meanSecs)
