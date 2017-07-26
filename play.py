@@ -28,16 +28,20 @@ def runGame(agent, learner, p, verbose, alpha=[1,1,1]):
             end = time.time()
             if verbose:
                 G.successMessage()
-            return (1, G.numRounds, G.lastMaxOverlap, end - start)
+            return (1, G.numRounds, G.lastMaxOverlap, learner.lastReward,
+                    learner.weightsNorm(), end - start)
         elif G.deckSize() < 4:
             end = time.time()
             if verbose:
                 G.failMessage()
-            return (0, G.numRounds, G.lastMaxOverlap, end - start)
+            return (0, G.numRounds, G.lastMaxOverlap, learner.lastReward,
+                    learner.weightsNorm(), end - start)
         else:
             if verbose:
                 G.playMessage(learner)
             if agent == 'sarsa':
+                # print 'theta at {}:\n{}'.format(G.numRounds, learner.theta)
+                # print 'max overlap: ', G.lastMaxOverlap
                 learner.update(G)
             else:
                 G.updateWeightsGoals(alpha)
@@ -55,8 +59,9 @@ Prints a summary of information from hist, a list of
 (<1 if success else 0>, <number of rounds>) tuples.
 '''
 def summarize(hist):
-    successes, rounds, overlaps, times = [np.mean(l) for l in zip(*hist)]
-    succRate, succNum, numGames = successes*100, int(successes*len(hist)), len(hist)
+    successes, rounds, overlaps, _, _, times = [np.mean(l) for l in zip(*hist)]
+    numGames = len(hist)
+    succRate, succNum = successes*100, int(successes*numGames)
     print '* Success rate:\t\t{}% ({}/{})'.format(succRate, succNum, numGames)
     print '* Mean rounds per game:\t{}'.format(rounds)
     print '* Mean final overlap:\t{}'.format(overlaps)
@@ -68,14 +73,14 @@ Writes data in hist to a specified output file as a csv.
 def write(hist, outfile):
     with open(outfile, 'wb') as out:
         csvOut = csv.writer(out)
-        csvOut.writerow(['success', 'numRounds', 'finalMaxOverlap', 'seconds'])
+        csvOut.writerow(['success', 'numRounds', 'finalMaxOverlap',
+                        'finalReward', 'weightsNorm', 'seconds'])
         for row in hist:
             csvOut.writerow(row)
 
 '''
 Main function. Simulates learning for a specified number of epochs.
-
-Agent types:
+There are three types of agents:
  * 'human' allows a human user to manually play the card game by specifying
     the indices of cards they want to swap at each round.
  * 'base' runs the card game with two baseline agents playing each other.
@@ -101,11 +106,13 @@ if __name__ == '__main__':
     learner = sarsa.Learner() if args.agent == 'sarsa' else None
     hist = [None] * args.N
 
+    # run game for specified amount of time
     for i in xrange(args.N):
         res = runGame(args.agent, learner, args.p, args.verbose)
         hist[i] = res
+        # for debugging
         if learner:
-            print 'theta #{}: {}'.format(i, learner.theta)
+            print 'theta #{}:\n{}'.format(i, learner.theta)
             print 'last reward: {}\n'.format(learner.lastReward)
 
     # write hist to csv and print summary of results

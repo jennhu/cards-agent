@@ -8,11 +8,11 @@ import numpy as np
 import itertools
 import random
 
-def swap(A, B, A_indices, B_indices):
-    if len(A_indices) != len(B_indices):
+def swap(A, B, indsA, indsB):
+    if len(indsA) != len(indsB):
         print 'Must enter same number of indices to swap.'
     else:
-        for (i, j) in itertools.product(A_indices, B_indices):
+        for (i,j) in itertools.product(indsA, indsB):
             A[i], B[j] = B[j], A[i]
 
 class Goal:
@@ -30,12 +30,9 @@ class Goal:
     def likelihood(self, G):
         return np.prod([c.probInPlay(G) for c in self.cards])
 
-    def bestImprovement(self, P, T):
-        improvements = P.evaluateActions([self], T)
-        return improvements.max()
-
     def goodAction(self, G):
-        return self.bestImprovement(G.player, G.table)
+        improvements = G.player.evaluateActions([self], G)
+        return improvements.max()
 
     def __repr__(self):
         return 'Goal(%d,%d)' % (self.start, self.suit)
@@ -106,7 +103,7 @@ class Player:
         self.actions = actions
 
     def act(self, G):
-        imp = self.evaluateActions(G.optimalGoals, G.table)
+        imp = self.evaluateActions(G.optimalGoals, G)
         best = imp.max()
         if best >= 0:
             aIndex, gIndex = np.unravel_index(imp.argmax(), imp.shape)
@@ -115,32 +112,32 @@ class Player:
         else:
             suits = [g.suit for g in G.optimalGoals]
             modeSuit = max(set(suits), key=suits.count)
-            suitAction = next((a for a in self.actions if self.suitImprovement(a, modeSuit, G.table) >= 0), None)
+            suitAction = next((a
+                for a in self.actions
+                if self.suitImprovement(a, modeSuit, G) >= 0), None)
             if suitAction:
                 swap(self.hand, G.table, suitAction[0], suitAction[1])
             else:
                 randAction = random.choice(self.actions)
                 swap(self.hand, G.table, randAction[0], randAction[1])
 
-    def suitImprovement(self, a, s, T):
+    def suitImprovement(self, a, s, G):
         curSuitOverlap = sum([1 for c in self.hand if c.suit == s])
-        handTemp, tableTemp = self.hand[:], T[:]
-        swap(handTemp, tableTemp, a[0], a[1])
+        handTemp = G.tempSwap(a)
         newSuitOverlap = sum([1 for c in handTemp if c.suit == s])
         return newSuitOverlap - curSuitOverlap
 
-    def goalImprovement(self, a, g, T):
+    def goalImprovement(self, a, g, G):
         curOverlap = g.overlap(self.hand)
-        handTemp, tableTemp = self.hand[:], T[:]
-        swap(handTemp, tableTemp, a[0], a[1])
+        handTemp = G.tempSwap(a)
         newOverlap = g.overlap(handTemp)
         return newOverlap - curOverlap
 
-    def evaluateActions(self, gList, T):
+    def evaluateActions(self, gList, G):
         improvements = np.zeros((len(self.actions), len(gList)))
         for (i, a) in enumerate(self.actions):
             for (j, g) in enumerate(gList):
-                improvements[i][j] = self.goalImprovement(a, g, T)
+                improvements[i][j] = self.goalImprovement(a, g, G)
         return improvements
 
 '''
@@ -153,19 +150,18 @@ class CardGame:
         self.deck = Deck(p)
         self.P1 = Player()
         self.P2 = Player()
-
         self.P1Turn = True
         self.player = self.P1
         self.other = self.P2
         self.numRounds = 0
+        self.seenDict = {}
+        self.R = [0]
 
         self.P1.hand = self.deck.draw(3)
         self.P2.hand = self.deck.draw(3)
         self.table = self.deck.draw(4)
 
         self.lastAvgOverlap, self.lastMaxOverlap = self.avgMaxOverlap()
-        self.seenDict = {}
-        self.R = [0]
 
     def roundLastSeen(self, card):
         try:
@@ -177,8 +173,7 @@ class CardGame:
         self.goals = [Goal(start, suit) for start in xrange(13) for suit in xrange(4)]
 
     def goalAchieved(self):
-        return any(g.overlap(self.P1.hand+self.P2.hand) == 5 for g in self.goals)
-        # return any(g.overlap(self.P1.hand+self.P2.hand) == 6 for g in self.goals)
+        return any(g.overlap(self.P1.hand+self.P2.hand) == 6 for g in self.goals)
 
     def deckSize(self):
         return len(self.deck.cards)
@@ -199,10 +194,11 @@ class CardGame:
         self.goalWeights = w
 
     def updateOptimalGoals(self):
-        self.optimalGoals = [self.goals[i] for i, x in enumerate(self.goalWeights) if x == max(self.goalWeights)]
+        self.optimalGoals = [self.goals[i]
+            for (i,x) in enumerate(self.goalWeights)
+            if x == max(self.goalWeights)]
 
     def nextRound(self):
-        self.lastAvgOverlap, self.lastMaxOverlap = self.avgMaxOverlap()
         r = self.reshuffle()
         self.R.append(r)
         self.numRounds += 1
@@ -215,17 +211,41 @@ class CardGame:
         self.other = self.P2 if self.P1Turn else self.P1
         self.table = self.deck.draw(4)
 
+    def tempSwap(self, action):
+        if action:
+            handCopy, tableCopy = self.player.hand[:], self.table[:]
+            swap(handCopy, tableCopy, action[0], action[1])
+            return handCopy
+        else:
+            return self.player.hand
+
+    def overlapsAfterAction(self, action):
+        hand = self.tempSwap(action)
+        overlaps = [g.overlap(hand + self.other.hand) for g in self.goals]
+        return filter(lambda x : x > 0, overlaps)
+
+    def likelihoodsAfterAction(self, action):
+        cardsPickedUp = [self.table[i] for i in action[1]]
+        relGoals = [c.overlappingGoals() for c in cardsPickedUp]
+        flattened = set([g for glist in relGoals for g in glist])
+        return [g.likelihood(self) for g in flattened]
+
     def avgMaxOverlap(self):
-        overlaps = [g.overlap(self.P1.hand + self.P2.hand) for g in self.goals]
-        nonZeroOverlaps = filter(lambda x : x > 0, overlaps)
-        return np.mean(nonZeroOverlaps), max(nonZeroOverlaps)
+        overlaps = self.overlapsAfterAction(None)
+        return np.mean(overlaps), max(overlaps)
 
     def getReward(self):
-        if self.goalAchieved():
-            return 100
-        else:
-            newAvgOver, _ = self.avgMaxOverlap()
-            return newAvgOver - self.lastAvgOverlap
+        newAvgOverlap, newMaxOverlap = self.avgMaxOverlap()
+        self.lastAvgOverlap = newAvgOverlap
+        self.lastMaxOverlap = newMaxOverlap
+
+        return 100 if self.goalAchieved() else newMaxOverlap
+
+        # newAvgOverlap, newMaxOverlap = self.avgMaxOverlap()
+        # # reward = newMaxOverlap - self.lastMaxOverlap
+        # self.lastAvgOverlap = newAvgOverlap
+        # self.lastMaxOverlap = newMaxOverlap
+        # return reward
 
     def execute(self, a):
         action = self.player.actions[a]
@@ -240,7 +260,7 @@ class CardGame:
         print ' * Ran out of cards in {} rounds.'.format(self.numRounds)
 
     def playMessage(self, learner):
-        print 'Round {}'.format(self.numRounds)
+        print 'Round {} ({} cards last reshuffled)'.format(self.numRounds, self.R[self.numRounds])
         print ' * Table:\t\t{}'.format(self.table)
         print '\033[1m' + ' * Player hand:\t\t{}'.format(self.player.hand) + '\033[0m'
         print ' * Other hand:\t\t{}'.format(self.other.hand)

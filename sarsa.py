@@ -3,7 +3,7 @@ import numpy as np
 import game
 
 numActions = 34
-numFeats = 4
+numFeats = 5
 
 '''
 Class for the SARSA learner. Follows an epsilon-greedy policy and uses
@@ -18,41 +18,33 @@ class Learner:
         self.lastReward = None
         self.theta = np.random.rand(numFeats)
 
-    def overlapsAfterAction(self, action, G):
-        handCopy, tableCopy = G.player.hand[:], G.table[:]
-        game.swap(handCopy, tableCopy, action[0], action[1])
-        overlaps = [g.overlap(handCopy + G.other.hand) for g in G.goals]
-        return filter(lambda x : x > 0, overlaps)
-
-    def likelihoodsAfterAction(self, action, G):
-        cardsPickedUp = [G.table[i] for i in action[1]]
-        relGoals = [c.overlappingGoals() for c in cardsPickedUp]
-        flattened = set([g for glist in relGoals for g in glist])
-        return [g.likelihood(G) for g in flattened]
+    def weightsNorm(self, norm=2):
+        return np.linalg.norm(self.theta, norm)
 
     def phi(self, a, G):
         action = G.player.actions[a]
 
-        overlaps = self.overlapsAfterAction(action, G)
+        overlaps = G.overlapsAfterAction(action)
         newAvg, newMax = np.mean(overlaps), max(overlaps)
         changeAvgOver = newAvg - G.lastAvgOverlap
         changeMaxOver = newMax - G.lastMaxOverlap
 
-        likelihoods = self.likelihoodsAfterAction(action, G)
+        likelihoods = G.likelihoodsAfterAction(action)
         avgLike = np.mean(likelihoods)
         maxLike = max(likelihoods)
 
-        return [changeAvgOver, changeMaxOver, avgLike, maxLike]
+        return [1, changeAvgOver, changeMaxOver, avgLike, maxLike]
 
     def getAction(self, G):
-        unnormalized = [self.phi(a, G) for a in xrange(numActions)]
-        self.feats = normalize(unnormalized, norm='l1')
-        self.actionWeights = np.dot(self.feats, self.theta)
+        # unnormalized = [self.phi(a, G) for a in xrange(numActions)]
+        # self.feats = normalize(unnormalized, norm='l1')
+        self.feats = [self.phi(a, G) for a in xrange(numActions)]
+        self.Q = np.dot(self.feats, self.theta)
 
         if np.random.rand() < self.eps:
             return np.random.randint(numActions)
         else:
-            return np.argmax(self.actionWeights)
+            return np.argmax(self.Q)
 
     def update(self, G):
         # execute last action
@@ -60,8 +52,13 @@ class Learner:
         # observe reward r and new state s' in the form of G
         r = G.getReward()
 
-        # store Q(s,a) and phi(s,a) before actionWeights and feats are overwritten
-        Q_sa = self.actionWeights[self.lastAction]
+        # print 'FEATURES:\n', np.array(self.feats)
+        # print 'Q:\n', self.Q
+        # print 'last action: ', self.lastAction
+        # print
+
+        # store Q(s,a) and phi(s,a) before Q and feats are overwritten
+        Q_sa = self.Q[self.lastAction]
         phi_sa = self.feats[self.lastAction]
 
         # choose next action a' from s' using epsilon-greedy policy
