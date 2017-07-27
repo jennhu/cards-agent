@@ -12,8 +12,9 @@ a linear function approximation.
 class Learner:
     def __init__(self):
         self.eps = 0.1
-        self.eta = 0.9
+        self.eta = 0.0001
         self.gamma = 0.75
+        # self.C = 0
         self.lastAction = None
         self.lastReward = None
         self.theta = np.random.rand(numFeats)
@@ -52,11 +53,6 @@ class Learner:
         # observe reward r and new state s' in the form of G
         r = G.getReward()
 
-        # print 'FEATURES:\n', np.array(self.feats)
-        # print 'Q:\n', self.Q
-        # print 'last action: ', self.lastAction
-        # print
-
         # store Q(s,a) and phi(s,a) before Q and feats are overwritten
         Q_sa = self.Q[self.lastAction]
         phi_sa = self.feats[self.lastAction]
@@ -66,7 +62,7 @@ class Learner:
 
         # perform SGD update on theta
         delta = r + self.gamma * np.dot(self.theta, self.phi(newAction, G)) - Q_sa
-        self.theta += np.multiply(self.eta * delta, phi_sa)
+        self.theta += np.multiply(self.eta * delta, phi_sa) # - self.C * self.theta
 
         # a <-- a'
         self.lastAction = newAction

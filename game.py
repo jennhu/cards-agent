@@ -8,12 +8,12 @@ import numpy as np
 import itertools
 import random
 
+goalLen = 4
+
 def swap(A, B, indsA, indsB):
-    if len(indsA) != len(indsB):
-        print 'Must enter same number of indices to swap.'
-    else:
-        for (i,j) in itertools.product(indsA, indsB):
-            A[i], B[j] = B[j], A[i]
+    assert len(indsA) != len(indsB)
+    for (i,j) in itertools.product(indsA, indsB):
+        A[i], B[j] = B[j], A[i]
 
 class Goal:
     def __init__(self, start, suit):
@@ -22,7 +22,7 @@ class Goal:
         self.cards = self.toCards()
 
     def toCards(self):
-        return [Card(self.start + i, self.suit) for i in xrange(6)]
+        return [Card(self.start + i, self.suit) for i in xrange(goalLen)]
 
     def overlap(self, C):
         return len(set(C) & set(self.cards))
@@ -43,7 +43,7 @@ class Card:
         self.suit = suit
 
     def overlappingGoals(self):
-        return [Goal(self.val + i, self.suit) for i in xrange(-5, 1)]
+        return [Goal(self.val + i, self.suit) for i in xrange(1-goalLen, 1)]
 
     def probInPlay(self, G):
         visible = G.P1.hand + G.P2.hand + G.table
@@ -173,7 +173,7 @@ class CardGame:
         self.goals = [Goal(start, suit) for start in xrange(13) for suit in xrange(4)]
 
     def goalAchieved(self):
-        return any(g.overlap(self.P1.hand+self.P2.hand) == 6 for g in self.goals)
+        return any(set(g.cards) <= set(self.P1.hand+self.P2.hand) for g in self.goals)
 
     def deckSize(self):
         return len(self.deck.cards)

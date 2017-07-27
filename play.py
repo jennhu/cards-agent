@@ -28,20 +28,20 @@ def runGame(agent, learner, p, verbose, alpha=[1,1,1]):
             end = time.time()
             if verbose:
                 G.successMessage()
-            return (1, G.numRounds, G.lastMaxOverlap, learner.lastReward,
-                    learner.weightsNorm(), end - start)
+            # return (1, G.numRounds, G.lastMaxOverlap, learner.lastReward,
+            #         learner.weightsNorm(), end - start)
+            return (1, G.numRounds, G.lastMaxOverlap, end - start)
         elif G.deckSize() < 4:
             end = time.time()
             if verbose:
                 G.failMessage()
-            return (0, G.numRounds, G.lastMaxOverlap, learner.lastReward,
-                    learner.weightsNorm(), end - start)
+            return (0, G.numRounds, G.lastMaxOverlap, end - start)
+            # return (0, G.numRounds, G.lastMaxOverlap, learner.lastReward,
+            #         learner.weightsNorm(), end - start)
         else:
             if verbose:
                 G.playMessage(learner)
             if agent == 'sarsa':
-                # print 'theta at {}:\n{}'.format(G.numRounds, learner.theta)
-                # print 'max overlap: ', G.lastMaxOverlap
                 learner.update(G)
             else:
                 G.updateWeightsGoals(alpha)
@@ -59,7 +59,7 @@ Prints a summary of information from hist, a list of
 (<1 if success else 0>, <number of rounds>) tuples.
 '''
 def summarize(hist):
-    successes, rounds, overlaps, _, _, times = [np.mean(l) for l in zip(*hist)]
+    successes, rounds, overlaps, times = [np.mean(l) for l in zip(*hist)]
     numGames = len(hist)
     succRate, succNum = successes*100, int(successes*numGames)
     print '* Success rate:\t\t{}% ({}/{})'.format(succRate, succNum, numGames)
@@ -74,7 +74,7 @@ def write(hist, outfile):
     with open(outfile, 'wb') as out:
         csvOut = csv.writer(out)
         csvOut.writerow(['success', 'numRounds', 'finalMaxOverlap',
-                        'finalReward', 'weightsNorm', 'seconds'])
+                         'seconds'])
         for row in hist:
             csvOut.writerow(row)
 
@@ -98,7 +98,7 @@ if __name__ == '__main__':
                         help='probability of reshuffling a card')
     parser.add_argument('-N', type=int, default=1,
                         help='number of trials/epochs to run')
-    parser.add_argument('-o', '--out', default='hist.csv',
+    parser.add_argument('-o', '--out', default=None,
                         help='file path to write history csv')
     args = parser.parse_args()
 
@@ -116,5 +116,6 @@ if __name__ == '__main__':
             print 'last reward: {}\n'.format(learner.lastReward)
 
     # write hist to csv and print summary of results
-    write(hist, args.out)
+    if args.out:
+        write(hist, args.out)
     summarize(hist)
