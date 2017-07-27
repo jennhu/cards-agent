@@ -11,7 +11,7 @@ import random
 goalLen = 4
 
 def swap(A, B, indsA, indsB):
-    assert len(indsA) != len(indsB)
+    assert len(indsA) == len(indsB)
     for (i,j) in itertools.product(indsA, indsB):
         A[i], B[j] = B[j], A[i]
 
@@ -250,6 +250,12 @@ class CardGame:
     def execute(self, a):
         action = self.player.actions[a]
         swap(self.player.hand, self.table, action[0], action[1])
+
+    def humanAction(self):
+        handInds = input('\nList of indices to swap from hand: ')
+        tableInds = input('List of indices to swap from table: ')
+        print
+        swap(self.player.hand, self.table, handInds, tableInds)
 
     def successMessage(self):
         print '\x1b[6;30;42m' + 'Success!' + '\x1b[0m'

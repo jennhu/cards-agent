@@ -28,9 +28,9 @@ def runGame(agent, learner, p, verbose, alpha=[1,1,1]):
             end = time.time()
             if verbose:
                 G.successMessage()
+            return (1, G.numRounds, G.lastMaxOverlap, end - start)
             # return (1, G.numRounds, G.lastMaxOverlap, learner.lastReward,
             #         learner.weightsNorm(), end - start)
-            return (1, G.numRounds, G.lastMaxOverlap, end - start)
         elif G.deckSize() < 4:
             end = time.time()
             if verbose:
@@ -46,10 +46,7 @@ def runGame(agent, learner, p, verbose, alpha=[1,1,1]):
             else:
                 G.updateWeightsGoals(alpha)
                 if agent == 'human':
-                    # prompt user to enter which cards to swap
-                    handInds = input('List of indices to swap from hand: ')
-                    tableInds = input('List of indices to swap from table: ')
-                    game.swap(G.player.hand, G.table, handInds, tableInds)
+                    G.humanAction()
                 elif agent == 'base':
                     G.player.act(G)
             G.nextRound()
@@ -92,8 +89,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Play the card game!')
     parser.add_argument('-v', '--verbose',
                         help='toggle verbosity', action='store_true')
-    parser.add_argument('-a', '--agent', choices=['human', 'base', 'sarsa'],
-                        help='type of agent')
+    parser.add_argument('-a', '--agent', default='human',
+                        help='type of agent', choices=['human', 'base', 'sarsa'])
     parser.add_argument('-p', type=float, default=0.5,
                         help='probability of reshuffling a card')
     parser.add_argument('-N', type=int, default=1,
