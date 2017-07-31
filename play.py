@@ -28,16 +28,20 @@ def runGame(agent, learner, p, verbose, alpha=[1,1,1]):
             end = time.time()
             if verbose:
                 G.successMessage()
-            return (1, G.numRounds, G.lastMaxOverlap, end - start)
-            # return (1, G.numRounds, G.lastMaxOverlap, learner.lastReward,
-            #         learner.weightsNorm(), end - start)
+            if agent == 'sarsa':
+                return ((1, G.numRounds, G.lastMaxOverlap, end - start)
+                        + tuple(learner.theta))
+            else:
+                return (1, G.numRounds, G.lastMaxOverlap, end - start)
         elif G.deckSize() < 4:
             end = time.time()
             if verbose:
                 G.failMessage()
-            return (0, G.numRounds, G.lastMaxOverlap, end - start)
-            # return (0, G.numRounds, G.lastMaxOverlap, learner.lastReward,
-            #         learner.weightsNorm(), end - start)
+            if agent == 'sarsa':
+                return ((0, G.numRounds, G.lastMaxOverlap, end - start)
+                        + tuple(learner.theta))
+            else:
+                return (0, G.numRounds, G.lastMaxOverlap, end - start)
         else:
             if verbose:
                 G.playMessage(learner)
@@ -52,11 +56,10 @@ def runGame(agent, learner, p, verbose, alpha=[1,1,1]):
             G.nextRound()
 
 '''
-Prints a summary of information from hist, a list of
-(<1 if success else 0>, <number of rounds>) tuples.
+Prints a summary of information from hist, a list of tuples.
 '''
 def summarize(hist):
-    successes, rounds, overlaps, times = [np.mean(l) for l in zip(*hist)]
+    successes, rounds, overlaps, times = [np.mean(l) for l in zip(*hist)][:4]
     numGames = len(hist)
     succRate, succNum = successes*100, int(successes*numGames)
     print '* Success rate:\t\t{}% ({}/{})'.format(succRate, succNum, numGames)
@@ -65,13 +68,19 @@ def summarize(hist):
     print '* Mean secs per game:\t{}'.format(times)
 
 '''
-Writes data in hist to a specified output file as a csv.
+Writes data in hist to a specified output file as a csv. Make sure to change
+the column labels if you change what values runGame returns.
 '''
-def write(hist, outfile):
+def write(hist, outfile, agent):
     with open(outfile, 'wb') as out:
         csvOut = csv.writer(out)
-        csvOut.writerow(['success', 'numRounds', 'finalMaxOverlap',
-                         'seconds'])
+        if agent == 'sarsa':
+            csvOut.writerow(['success', 'numRounds', 'finalMaxOverlap',
+                             'seconds', 'bias', 'avgOver', 'maxOver',
+                             'avgLike', 'maxLike'])
+        else:
+            csvOut.writerow(['success', 'numRounds', 'finalMaxOverlap',
+                             'seconds'])
         for row in hist:
             csvOut.writerow(row)
 
@@ -90,11 +99,11 @@ if __name__ == '__main__':
     parser.add_argument('-v', '--verbose',
                         help='toggle verbosity', action='store_true')
     parser.add_argument('-a', '--agent', default='human',
-                        help='type of agent', choices=['human', 'base', 'sarsa'])
-    parser.add_argument('-p', type=float, default=0.5,
+                        help='type of agent', choices=['human','base','sarsa'])
+    parser.add_argument('-p', type=float, default=0.75,
                         help='probability of reshuffling a card')
     parser.add_argument('-N', type=int, default=1,
-                        help='number of trials/epochs to run')
+                        help='number of games to run')
     parser.add_argument('-o', '--out', default=None,
                         help='file path to write history csv')
     args = parser.parse_args()
@@ -105,14 +114,12 @@ if __name__ == '__main__':
 
     # run game for specified amount of time
     for i in xrange(args.N):
+        print 'Playing game {}...'.format(i)
         res = runGame(args.agent, learner, args.p, args.verbose)
         hist[i] = res
-        # for debugging
-        if learner:
-            print 'theta #{}:\n{}'.format(i, learner.theta)
-            print 'last reward: {}\n'.format(learner.lastReward)
+    print 'Done.'
 
     # write hist to csv and print summary of results
     if args.out:
-        write(hist, args.out)
+        write(hist, args.out, args.agent)
     summarize(hist)

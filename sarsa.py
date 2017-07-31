@@ -12,12 +12,13 @@ a linear function approximation.
 class Learner:
     def __init__(self):
         self.eps = 0.1
-        self.eta = 0.0001
+        self.eta = 0.001
         self.gamma = 0.75
         # self.C = 0
         self.lastAction = None
         self.lastReward = None
-        self.theta = np.random.rand(numFeats)
+        self.theta = np.zeros(numFeats)
+        # self.theta = np.random.rand(numFeats)
 
     def weightsNorm(self, norm=2):
         return np.linalg.norm(self.theta, norm)
@@ -26,20 +27,20 @@ class Learner:
         action = G.player.actions[a]
 
         overlaps = G.overlapsAfterAction(action)
-        newAvg, newMax = np.mean(overlaps), max(overlaps)
-        changeAvgOver = newAvg - G.lastAvgOverlap
-        changeMaxOver = newMax - G.lastMaxOverlap
+        avgOver, maxOver = np.mean(overlaps), max(overlaps)
+        # changeAvgOver = avgOver - G.lastAvgOverlap
+        # changeMaxOver = maxOver - G.lastMaxOverlap
 
         likelihoods = G.likelihoodsAfterAction(action)
         avgLike = np.mean(likelihoods)
         maxLike = max(likelihoods)
 
-        return [1, changeAvgOver, changeMaxOver, avgLike, maxLike]
+        return [1, avgOver, maxOver, avgLike, maxLike]
+        # return [1, changeAvgOver, changeMaxOver, avgLike, maxLike]
 
     def getAction(self, G):
-        # unnormalized = [self.phi(a, G) for a in xrange(numActions)]
-        # self.feats = normalize(unnormalized, norm='l1')
-        self.feats = [self.phi(a, G) for a in xrange(numActions)]
+        self.feats = normalize([self.phi(a, G) for a in xrange(numActions)],
+                                norm='l2')
         self.Q = np.dot(self.feats, self.theta)
 
         if np.random.rand() < self.eps:
@@ -60,9 +61,14 @@ class Learner:
         # choose next action a' from s' using epsilon-greedy policy
         newAction = self.getAction(G)
 
-        # perform SGD update on theta
-        delta = r + self.gamma * np.dot(self.theta, self.phi(newAction, G)) - Q_sa
-        self.theta += np.multiply(self.eta * delta, phi_sa) # - self.C * self.theta
+        # perform SGD update on theta now that Q has been updated
+        delta = r + self.gamma * self.Q[newAction] - Q_sa
+
+        update = self.eta * delta * phi_sa # - self.C * self.theta
+        # negs = [i for i in xrange(numFeats) if update[i] < 0]
+        # print 'Negative update in weights {}'.format(negs)
+
+        self.theta += update
 
         # a <-- a'
         self.lastAction = newAction

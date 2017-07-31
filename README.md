@@ -7,4 +7,4 @@ To get started, run `python play.py -h` to see a full list of options. You will 
 
 `play.py [-h] [-v] [-a {human,base,sarsa}] [-p P] [-N N] [-o OUT]`
 
-By default, `-v = False`, `-a = 'human'`, `-p = 0.5`, `-N = 1`, and `-o = None`.
+By default, `-v = False`, `-a = 'human'`, `-p = 0.75`, `-N = 1`, and `-o = None`.
