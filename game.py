@@ -8,7 +8,7 @@ import numpy as np
 import itertools
 import random
 
-goalLen = 4
+goalLen = 6
 
 def swap(A, B, indsA, indsB):
     assert len(indsA) == len(indsB)
@@ -30,7 +30,7 @@ class Goal:
     def likelihood(self, G):
         return np.prod([c.probInPlay(G) for c in self.cards])
 
-    def goodAction(self, G):
+    def bestImprovement(self, G):
         improvements = G.player.evaluateActions([self], G)
         return improvements.max()
 
@@ -93,10 +93,6 @@ class Player:
         self.hand = []
         self.generateActions()
 
-        # self.numBestActions = 0
-        # self.numSuitActions = 0
-        # self.numRandActions = 0
-
     def generateActions(self):
         actions = []
         for i in xrange(1, 4):
@@ -110,7 +106,6 @@ class Player:
         imp = self.evaluateActions(G.optimalGoals, G)
         best = imp.max()
         if best >= 0:
-            # self.numBestActions += 1
             aIndex, gIndex = np.unravel_index(imp.argmax(), imp.shape)
             goodAction = self.actions[aIndex]
             swap(self.hand, G.table, goodAction[0], goodAction[1])
@@ -121,10 +116,8 @@ class Player:
                 for a in self.actions
                 if self.suitImprovement(a, modeSuit, G) >= 0), None)
             if suitAction:
-                # self.numSuitActions += 1
                 swap(self.hand, G.table, suitAction[0], suitAction[1])
             else:
-                # self.numRandActions += 1
                 randAction = random.choice(self.actions)
                 swap(self.hand, G.table, randAction[0], randAction[1])
 
@@ -196,7 +189,7 @@ class CardGame:
         C = self.P1.hand + self.P2.hand
         w = np.zeros(len(self.goals))
         for (i,g) in enumerate(self.goals):
-            feats = [g.overlap(C), g.likelihood(self), g.goodAction(self)]
+            feats = [g.overlap(C), g.likelihood(self), g.bestImprovement(self)]
             w[i] = np.dot(alpha, feats)
         self.goalWeights = w
 
@@ -258,8 +251,7 @@ class CardGame:
             return change * newMaxOverlap
 
     def execute(self, a):
-        action = self.player.actions[a]
-        swap(self.player.hand, self.table, action[0], action[1])
+        swap(self.player.hand, self.table, a[0], a[1])
 
     def humanAction(self):
         handInds = input('\nList of indices to swap from hand: ')
@@ -282,7 +274,7 @@ class CardGame:
         print '\033[1m' + ' * Player hand:\t\t{}'.format(self.player.hand) + '\033[0m'
         print ' * Other hand:\t\t{}'.format(self.other.hand)
         if learner:
-            print ' * Action:\t\t{}'.format(self.player.actions[learner.lastAction])
+            print ' * Action:\t\t{}'.format(learner.lastAction)
         else:
             print ' * Optimal goals:\t{}'.format(self.optimalGoals)
         # print ' * Seen:\t\t{}'.format(self.seenDict)

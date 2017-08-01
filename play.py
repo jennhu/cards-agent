@@ -18,7 +18,8 @@ def runGame(agent, learner, p, verbose, alpha=[1,1,1]):
     start = time.time()
 
     if learner:
-        learner.lastAction = learner.getAction(G)
+        learner.lastGoal = learner.getGoal(G)
+        learner.lastAction = learner.getAction(learner.lastGoal, G)
     else:
         G.updateWeightsGoals(alpha)
 
@@ -76,8 +77,7 @@ def write(hist, outfile, agent):
         csvOut = csv.writer(out)
         if agent == 'sarsa':
             csvOut.writerow(['success', 'numRounds', 'finalMaxOverlap',
-                             'seconds', 'bias', 'avgOver', 'maxOver',
-                             'avgLike', 'maxLike'])
+                             'seconds', 'overlap', 'likelihood', 'goodAction'])
         else:
             csvOut.writerow(['success', 'numRounds', 'finalMaxOverlap',
                              'seconds'])
