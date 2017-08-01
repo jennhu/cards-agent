@@ -3,7 +3,7 @@ import numpy as np
 import game
 
 numActions = 34
-numFeats = 5
+numFeats = 3
 
 '''
 Class for the SARSA learner. Follows an epsilon-greedy policy and uses
