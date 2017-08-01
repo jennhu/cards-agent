@@ -18,7 +18,6 @@ class Learner:
         self.lastAction = None
         self.lastReward = None
         self.theta = np.zeros(numFeats)
-        # self.theta = np.random.rand(numFeats)
 
     def weightsNorm(self, norm=2):
         return np.linalg.norm(self.theta, norm)
