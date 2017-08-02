@@ -106,38 +106,38 @@ class Player:
         imp = self.evaluateActions(G.optimalGoals, G)
         best = imp.max()
         if best >= 0:
-            aIndex, gIndex = np.unravel_index(imp.argmax(), imp.shape)
+            aIndex, _ = np.unravel_index(imp.argmax(), imp.shape)
             goodAction = self.actions[aIndex]
-            swap(self.hand, G.table, goodAction[0], goodAction[1])
+            G.execute(goodAction)
         else:
             suits = [g.suit for g in G.optimalGoals]
             modeSuit = max(set(suits), key=suits.count)
             suitAction = next((a
                 for a in self.actions
-                if self.suitImprovement(a, modeSuit, G) >= 0), None)
+                if self.incSuitOverlap(a, modeSuit, G) >= 0), None)
             if suitAction:
-                swap(self.hand, G.table, suitAction[0], suitAction[1])
+                G.execute(suitAction)
             else:
                 randAction = random.choice(self.actions)
-                swap(self.hand, G.table, randAction[0], randAction[1])
+                G.execute(randAction)
 
-    def suitImprovement(self, a, s, G):
-        curSuitOverlap = sum([1 for c in self.hand if c.suit == s])
+    def incSuitOverlap(self, a, s, G):
+        curSuitOverlap = sum([1 for c in self.hand + G.other.hand if c.suit == s])
         handTemp = G.tempSwap(a)
-        newSuitOverlap = sum([1 for c in handTemp if c.suit == s])
+        newSuitOverlap = sum([1 for c in handTemp + G.other.hand if c.suit == s])
         return newSuitOverlap - curSuitOverlap
 
-    def goalImprovement(self, a, g, G):
-        curOverlap = g.overlap(self.hand)
+    def incGoalOverlap(self, a, g, G):
+        curOverlap = g.overlap(self.hand + G.other.hand)
         handTemp = G.tempSwap(a)
-        newOverlap = g.overlap(handTemp)
+        newOverlap = g.overlap(handTemp + G.other.hand)
         return newOverlap - curOverlap
 
     def evaluateActions(self, gList, G):
         improvements = np.zeros((len(self.actions), len(gList)))
         for (i, a) in enumerate(self.actions):
             for (j, g) in enumerate(gList):
-                improvements[i][j] = self.goalImprovement(a, g, G)
+                improvements[i][j] = self.incGoalOverlap(a, g, G)
         return improvements
 
 '''
@@ -275,6 +275,7 @@ class CardGame:
         print ' * Other hand:\t\t{}'.format(self.other.hand)
         if learner:
             print ' * Action:\t\t{}'.format(learner.lastAction)
+            print ' * Goal:\t\t{}'.format(self.goals[learner.lastGoal])
         else:
             print ' * Optimal goals:\t{}'.format(self.optimalGoals)
         # print ' * Seen:\t\t{}'.format(self.seenDict)

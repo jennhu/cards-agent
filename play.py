@@ -113,30 +113,30 @@ if __name__ == '__main__':
     learner = sarsa.Learner() if args.agent == 'sarsa' else None
     hist = [None] * args.N
 
-    # # run game for specified amount of time
-    # for i in xrange(args.N):
-    #     print 'Playing game {}...'.format(i)
-    #     res = runGame(args.agent, learner, args.p, args.verbose, args.alpha)
-    #     hist[i] = res
-    # print 'Done.'
+    # run game for specified amount of time
+    for i in xrange(args.N):
+        print 'Playing game {}...'.format(i)
+        res = runGame(args.agent, learner, args.p, args.verbose, args.alpha)
+        hist[i] = res
+    print 'Done.'
+
+    # write hist to csv and print summary of results
+    if args.out:
+        write(hist, args.out, args.agent)
+    summarize(hist)
+
+    # incs = np.arange(0, 1.2, 0.2)
+    # alphas = [[x,y,z] for x in incs for y in incs for z in incs]
+    # numAlphas = len(alphas)
     #
-    # # write hist to csv and print summary of results
-    # if args.out:
-    #     write(hist, args.out, args.agent)
-    # summarize(hist)
-
-    incs = np.arange(0, 1.1, 0.1)
-    alphas = [[x,y,z] for x in incs for y in incs for z in incs]
-    numAlphas = len(alphas)
-
-    for (a,alpha) in enumerate(alphas):
-        print 'alpha {}/{}'.format(a, numAlphas)
-        # run game for specified amount of time
-        for i in xrange(args.N):
-            print 'Playing game {}...'.format(i)
-            res = runGame(args.agent, learner, args.p, args.verbose, alpha) + tuple(alpha)
-            hist[i] = res
-        print 'Done.\n'
-
-        # write hist to csv and print summary of results
-        write(hist, 'runs/sarsa-goal/alpha2/goal6_alpha{}.csv'.format(a), args.agent)
+    # for (a,alpha) in enumerate(alphas):
+    #     print 'alpha {}/{}'.format(a, numAlphas)
+    #     # run game for specified amount of time
+    #     for i in xrange(args.N):
+    #         print 'Playing game {}...'.format(i)
+    #         res = runGame(args.agent, learner, args.p, args.verbose, alpha) + tuple(alpha)
+    #         hist[i] = res
+    #     print 'Done.\n'
+    #
+    #     # write hist to csv and print summary of results
+    #     write(hist, 'runs/sarsa-goal/alpha2/goal6_alpha{}.csv'.format(a), args.agent)

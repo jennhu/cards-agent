@@ -40,7 +40,9 @@ class Learner:
             return np.argmax(self.Q)
 
     '''
-    Given a goal g, select the best action to take (epsilon greedy).
+    Given a goal g, select the best action to take according to the
+    baseline rule (first look for a good action, then suit action,
+    then random action).
     '''
     def getAction(self, g, G):
         goal = G.goals[g]
@@ -53,7 +55,7 @@ class Learner:
         else:
             suitAction = next((a
                 for a in G.player.actions
-                if G.player.suitImprovement(a, goal.suit, G) >= 0), None)
+                if G.player.incSuitOverlap(a, goal.suit, G) >= 0), None)
             if suitAction:
                 return suitAction
             else:
@@ -61,7 +63,7 @@ class Learner:
                 return randAction
 
     def update(self, G):
-        # execute action chosen according to baseline rule
+        # execute last action chosen
         G.execute(self.lastAction)
         # observe reward r and new state s' in the form of G
         r = G.getReward()
