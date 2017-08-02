@@ -5,6 +5,6 @@ Plays the card game with lots of user-specified options! **This README is a work
 ## Usage
 To get started, run `python play.py -h` to see a full list of options. You will see the following:
 
-`play.py [-h] [-v] [-a {human,base,sarsa}] [-p P] [-N N] [-o OUT]`
+`play.py [-h] [-v] [-a {human,base,sarsa}] [-p P] [-N N] [-o OUT] [-alpha ALPHA ALPHA ALPHA]`
 
-By default, `-v = False`, `-a = 'human'`, `-p = 0.75`, `-N = 1`, and `-o = None`.
+By default, `-v = False`, `-a = 'human'`, `-p = 0.75`, `-N = 1`, `-o = None`, and `-alpha = [1,1,1]`.

@@ -9,7 +9,7 @@ import csv
 '''
 Runs a single instance of the card game.
 '''
-def runGame(agent, learner, p, verbose, alpha=[1,1,1]):
+def runGame(agent, learner, p, verbose, alpha):
     if agent == 'human' and not verbose:
         print 'WARNING: turn on verbose mode to play as a human.'
 
@@ -80,7 +80,7 @@ def write(hist, outfile, agent):
                              'seconds', 'overlap', 'likelihood', 'goodAction'])
         else:
             csvOut.writerow(['success', 'numRounds', 'finalMaxOverlap',
-                             'seconds'])
+                             'seconds', 'alphaOverlap', 'alphaLike', 'alphaAction'])
         for row in hist:
             csvOut.writerow(row)
 
@@ -106,20 +106,36 @@ if __name__ == '__main__':
                         help='number of games to run')
     parser.add_argument('-o', '--out', default=None,
                         help='file path to write history csv')
+    parser.add_argument('-alpha', nargs=3, type=float, default=[1,1,1])
     args = parser.parse_args()
 
     # initialize learner and hist
     learner = sarsa.Learner() if args.agent == 'sarsa' else None
     hist = [None] * args.N
 
-    # run game for specified amount of time
-    for i in xrange(args.N):
-        print 'Playing game {}...'.format(i)
-        res = runGame(args.agent, learner, args.p, args.verbose)
-        hist[i] = res
-    print 'Done.'
+    # # run game for specified amount of time
+    # for i in xrange(args.N):
+    #     print 'Playing game {}...'.format(i)
+    #     res = runGame(args.agent, learner, args.p, args.verbose, args.alpha)
+    #     hist[i] = res
+    # print 'Done.'
+    #
+    # # write hist to csv and print summary of results
+    # if args.out:
+    #     write(hist, args.out, args.agent)
+    # summarize(hist)
 
-    # write hist to csv and print summary of results
-    if args.out:
-        write(hist, args.out, args.agent)
-    summarize(hist)
+    incs = np.arange(0, 1.1, 0.1)
+    alphas = [[x,y,z] for x in incs for y in incs for z in incs]
+
+    for (a,alpha) in enumerate(alphas):
+        print 'alpha {}/{}'.format(a,125)
+        # run game for specified amount of time
+        for i in xrange(args.N):
+            print 'Playing game {}...'.format(i)
+            res = runGame(args.agent, learner, args.p, args.verbose, alpha) + tuple(alpha)
+            hist[i] = res
+        print 'Done.\n'
+
+        # write hist to csv and print summary of results
+        write(hist, 'runs/sarsa-goal/alpha/goal6_alpha{}.csv'.format(a), args.agent)
