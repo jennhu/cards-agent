@@ -127,9 +127,10 @@ if __name__ == '__main__':
 
     incs = np.arange(0, 1.1, 0.1)
     alphas = [[x,y,z] for x in incs for y in incs for z in incs]
+    numAlphas = len(alphas)
 
     for (a,alpha) in enumerate(alphas):
-        print 'alpha {}/{}'.format(a,125)
+        print 'alpha {}/{}'.format(a, numAlphas)
         # run game for specified amount of time
         for i in xrange(args.N):
             print 'Playing game {}...'.format(i)
@@ -138,4 +139,4 @@ if __name__ == '__main__':
         print 'Done.\n'
 
         # write hist to csv and print summary of results
-        write(hist, 'runs/sarsa-goal/alpha/goal6_alpha{}.csv'.format(a), args.agent)
+        write(hist, 'runs/sarsa-goal/alpha2/goal6_alpha{}.csv'.format(a), args.agent)
